@@ -5,8 +5,6 @@
 
 void sendOutput(char* message){
   write(1, message, strlen(message));
-
-  
 }
 
 char* getInput(){
