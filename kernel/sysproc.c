@@ -89,3 +89,12 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// return cloom
+uint64
+sys_memsize(void)
+{
+  
+  // return (uint64)7;
+  return myproc()->sz;
+}
