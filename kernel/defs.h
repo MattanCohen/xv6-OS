@@ -84,6 +84,7 @@ void            printfinit(void);
 // proc.c
 int             cpuid(void);
 void            exit(int);
+void            exitwithmsg(int, char*);
 int             fork(void);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
@@ -101,6 +102,7 @@ void            sched(void);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             wait(uint64);
+int             waitwithmsg(uint64, uint64);
 void            wakeup(void*);
 void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
