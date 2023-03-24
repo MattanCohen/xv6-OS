@@ -24,5 +24,5 @@ main(int argc, char *argv[])
     sendOutput(inputMessage);
   }
 
-  exit(0);
+  exit(0, "");
 }

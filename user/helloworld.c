@@ -14,5 +14,5 @@ main(int argc, char *argv[])
   
   sendOutput("Hello world xv6");
 
-  exit(0);
+  exit(0, "helloworld command normal exit");
 }

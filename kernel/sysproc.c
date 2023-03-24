@@ -6,23 +6,15 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
   int n;
   argint(0, &n);
-  exit(n);
-  return 0;  // not reached
-}
-
-uint64
-sys_exitwithmsg(void)
-{
-  int n;
-  argint(0, &n);
   char new_msg[32];
   argstr(1, new_msg , MAX_MSG_SIZE);
-  exitwithmsg(n, new_msg);
+  exit(n, new_msg);
   return 0;  // not reached
 }
 
@@ -38,22 +30,15 @@ sys_fork(void)
   return fork();
 }
 uint64
-sys_waitwithmsg(void)
+sys_wait(void)
 {
   uint64 exitStatus;
   uint64 exitMsg; 
   argaddr(0, &exitStatus);
   argaddr(1, &exitMsg);
-  return waitwithmsg(exitStatus, exitMsg);
+  return wait(exitStatus, exitMsg);
 }
 
-uint64
-sys_wait(void)
-{
-  uint64 p;
-  argaddr(0, &p);
-  return wait(p);
-}
 
 uint64
 sys_sbrk(void)
