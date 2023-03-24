@@ -345,7 +345,7 @@ reparent(struct proc *p)
 // until its parent calls wait().
 // task 3 - add argument exitmsg
 void
-exitwithmsg(int status, char* msg)
+exit(int status, char* msg)
 {
   struct proc *p = myproc();
 
@@ -389,52 +389,11 @@ exitwithmsg(int status, char* msg)
 }
 
 
-void
-exit(int status)
-{
-  struct proc *p = myproc();
-
-  if(p == initproc)
-    panic("init exiting");
-
-  // Close all open files.
-  for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
-      struct file *f = p->ofile[fd];
-      fileclose(f);
-      p->ofile[fd] = 0;
-    }
-  }
-
-  begin_op();
-  iput(p->cwd);
-  end_op();
-  p->cwd = 0;
-
-  acquire(&wait_lock);
-
-  // Give any children to init.
-  reparent(p);
-
-  // Parent might be sleeping in wait().
-  wakeup(p->parent);
-  
-  acquire(&p->lock);
-
-  p->xstate = status;
-  p->state = ZOMBIE;
-
-  release(&wait_lock);
-
-  // Jump into the scheduler, never to return.
-  sched();
-  panic("zombie exit");
-}
 
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
-waitwithmsg(uint64 addr, uint64 msg)
+wait(uint64 addr, uint64 msg)
 {
   struct proc *pp;
   int havekids, pid;
@@ -478,7 +437,9 @@ waitwithmsg(uint64 addr, uint64 msg)
           fetchstr(msg + 8, message, sizeof(message));  
           
           // print the message from address
-          printf("\nwait child terminated. \n\texit status: %d \n\texit message: %s \n", 
+          printf("%s(pid #%d) terminated while %s(pid #%d) is waiting. \n\texit status: %d \n\texit message: %s \n", 
+                      pp->name, pp->pid,
+                      p->name,  p->pid ,
                       pp->xstate ,message);
           
           freeproc(pp);
@@ -502,52 +463,6 @@ waitwithmsg(uint64 addr, uint64 msg)
 }
 
 
-int
-wait(uint64 addr)
-{
-  struct proc *pp;
-  int havekids, pid;
-  struct proc *p = myproc();
-
-  acquire(&wait_lock);
-
-  for(;;){
-    // Scan through table looking for exited children.
-    havekids = 0;
-    for(pp = proc; pp < &proc[NPROC]; pp++){ 
-      if(pp->parent == p){
-        // make sure the child isn't still in exit() or swtch().
-        acquire(&pp->lock);
-
-        havekids = 1;
-        if(pp->state == ZOMBIE){
-          // Found one.
-          pid = pp->pid;
-          if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
-                                  sizeof(pp->xstate)) < 0) {
-            release(&pp->lock);
-            release(&wait_lock);
-            return -1;
-          }
-          freeproc(pp);
-          release(&pp->lock);
-          release(&wait_lock);
-          return pid;
-        }
-        release(&pp->lock);
-      }
-    }
-
-    // No point waiting if we don't have any children.
-    if(!havekids || killed(p)){
-      release(&wait_lock);
-      return -1;
-    }
-    
-    // Wait for a child to exit.
-    sleep(p, &wait_lock);  //DOC: wait-sleep
-  }
-}
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
