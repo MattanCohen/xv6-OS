@@ -7,20 +7,21 @@
 int
 main(int argc, char *argv[])
 {
-  if(!fork()){
+  int pid;
+  if(! (pid =fork())){
     //child process 
-    printf("child started running\n");
-    exitwithmsg(55, "Goodbye World xv6");
+    
+    exit(55, "Goodbye World xv6");
   }
   else{
-    //parent process 
+    //parent process
     int status;
     char message[32];
     char* msg = message;
     
-    waitwithmsg(&status, &msg);
-    printf("\nparent recieved: \n\tstatus: %d \n\tmessage: %s\nexiting program.\n", status, message);
+    wait(&status, &msg);
+  printf("@@ - in parent recieved from child proccess (pid #%d):\n  status - %d,\n  message - %s.\n", pid, status, message);
   }
 
-  exit(0) ;
+  exit(0, "goodbye command normal exit") ;
 }

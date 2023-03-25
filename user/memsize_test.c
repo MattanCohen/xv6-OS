@@ -59,5 +59,5 @@ int main(int argc, char *argv[])
     free(a);
     memsizeTestPrint("the size of the memory after freeing the array is: ");
     
-    exit(0);
+    exit(0, "");
 }
