@@ -12,7 +12,7 @@ int
 main(int argc, char *argv[])
 {
   
-  sendOutput("Hello world xv6");
+  sendOutput("Hello world xv6\n");
 
   exit(0, "helloworld command normal exit");
 }
