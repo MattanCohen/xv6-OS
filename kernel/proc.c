@@ -424,7 +424,7 @@ wait(uint64 addr, uint64 msg)
             release(&wait_lock);
             return -1;
           }
-          if (msg != 0 && copyout(page, msg + 8, (char *)&pp->exit_msg,  sizeof(pp->exit_msg)) < 0)
+          if (msg != 0 && copyout(page, msg , (char *)&pp->exit_msg,  sizeof(pp->exit_msg)) < 0)
           {
             printf("error retrieveing MESSAGE\n");
             release(&pp->lock);
@@ -434,7 +434,7 @@ wait(uint64 addr, uint64 msg)
 
           // get message from address
           char message[32];
-          fetchstr(msg + 8, message, sizeof(message));  
+          fetchstr(msg , message, sizeof(message));  
           
           // print the message from address
           printf("%s(pid #%d) terminated while %s(pid #%d) is waiting. \n\texit status: %d \n\texit message: %s \n", 

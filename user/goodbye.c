@@ -17,9 +17,8 @@ main(int argc, char *argv[])
     //parent process
     int status;
     char message[32];
-    char* msg = message;
     
-    wait(&status, &msg);
+    wait(&status, (char**)&message);
   printf("@@ - in parent recieved from child proccess (pid #%d):\n  status - %d,\n  message - %s.\n", pid, status, message);
   }
 
