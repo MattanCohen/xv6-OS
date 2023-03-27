@@ -107,4 +107,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   char exit_msg[MAX_MSG_SIZE];           // task 3 - add exit messege 
+  int ps_priority;             //task 5 
+  long long accumulator        //task 5
 };
