@@ -125,7 +125,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->ps_priority = 5;
-  p->accumulator = 0;
+  p->accumulator = get_min_acc();
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -439,16 +439,18 @@ wait(uint64 addr, uint64 msg)
           fetchstr(msg , message, sizeof(message));  
           
           // print the message from address
-          printf("%s(pid #%d) terminated while %s(pid #%d) is waiting. \n\texit status: %d \n\texit message: %s \n", 
-                      pp->name, pp->pid,
-                      p->name,  p->pid ,
-                      pp->xstate ,message);
+
+          printf("%s(pid #%d): terminated while %s(pid #%d) is waiting.\n", pp->name, pp->pid, p->name,  p->pid);
+            printf("\texit status: %d \n", pp->xstate);
+            printf("\texit message: %s \n",message);
+            printf("\tps_priority : %d \n",pp->ps_priority);
+            printf("\tpriority accumulator : %d \n",(int)pp->accumulator);
           
           freeproc(pp);
-          release(&pp->lock);
-          release(&wait_lock);
+            release(&pp->lock);
+            release(&wait_lock);
           return pid;
-        }
+          }
         release(&pp->lock);
       }
     }
@@ -503,6 +505,42 @@ scheduler(void)
   }
 }
 
+void set_ps_priority(int new_ps){
+  if (new_ps < 0 ||  new_ps > 10)
+    panic("set_ps_priority value can only be between 0 to 10");
+  
+  struct proc* p;
+  p = myproc();
+  p->ps_priority = new_ps;
+}
+
+// Task 5
+long long get_min_acc(){
+  struct proc* p;
+  long long max_long_long = 9223372036854775807;
+  
+  // count running processes
+  int num_running_proc = 0;
+
+  // set start min acc to max long long value
+  long long min_acc = max_long_long;
+  
+  // go over procs in system
+  for (p = proc; p < &proc[NPROC]; p++){
+    if (holding(&p->lock)) continue;
+    acquire(&p->lock);
+    if (p->state == RUNNABLE || p->state == RUNNING){
+      num_running_proc ++;
+      if (p->accumulator < min_acc)
+        min_acc = p->accumulator;
+    }
+    release(&p->lock);
+  }
+  
+  return num_running_proc <= 1 ? 0 : min_acc ;
+}
+
+
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -524,6 +562,8 @@ sched(void)
     panic("sched running");
   if(intr_get())
     panic("sched interruptible");
+
+  p->accumulator += p->ps_priority;
 
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
@@ -604,6 +644,7 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+        p->accumulator = get_min_acc();
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -619,14 +660,24 @@ kill(int pid)
 {
   struct proc *p;
 
+  // for p in all processes
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
+
+    // if p is numbered pid
     if(p->pid == pid){
+
+      // kill p
       p->killed = 1;
+      
+      // Wake p from sleep() if sleeping
       if(p->state == SLEEPING){
-        // Wake process from sleep().
         p->state = RUNNABLE;
       }
+
+      // reset acc to be min acc
+      p->accumulator = get_min_acc();
+
       release(&p->lock);
       return 0;
     }
