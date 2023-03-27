@@ -2,6 +2,7 @@ struct stat;
 
 // system calls
 int fork(void);
+int yield(void);
 int exit(int, char*) __attribute__((noreturn));
 int wait(int*, char**);
 int pipe(int*);
@@ -23,6 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int memsize(void);
+void set_ps_priority(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
