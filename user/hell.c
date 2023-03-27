@@ -14,15 +14,42 @@ char* getInput(){
 }
 
 int TestFunction(){
+  int test1 = 1;
 
-  if(!fork()){
-    set_ps_priority(3);
-    if (!fork()){
-      set_ps_priority(10);
-      set_ps_priority(5);
-
+  if (test1){
+    if (fork()){
+      set_ps_priority(1);
+      if(!fork()){
+        exit(0, "child 0");
+      }
+      else
+      {
+       if(!fork()){
+        set_ps_priority(2);
+        exit(0, "child 1");
+      } 
+        set_ps_priority(3);
+      }
+      set_ps_priority(4);
     }
-    set_ps_priority(7);
+  }
+  
+  else{
+    if (!fork()){
+      set_ps_priority(1);
+      if (!fork()){
+        set_ps_priority(2);
+        if (!fork()){
+          set_ps_priority(3);
+          if (!fork()){
+            set_ps_priority(4);
+            if (!fork()){
+              set_ps_priority(5);
+            }  
+          }  
+        }  
+      }
+    }
   }
 
   exit(0, "hell - test function");

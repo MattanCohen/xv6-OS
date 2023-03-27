@@ -113,3 +113,37 @@ sys_set_ps_priority(void)
 
   return 0;
 }
+uint64
+sys_set_cfs_priority(void)
+{
+  int new_p;
+  argint(0, &new_p);
+  
+  return set_cfs_priority(new_p);
+}
+
+uint64
+sys_get_cfs_priority(void)
+{
+  int new_p;
+  argint(0, &new_p);
+  
+  uint64 _cfs_priority;
+  argaddr(1, &_cfs_priority);
+  uint64 _rtime;
+  argaddr(2, &_rtime);
+  uint64 _stime;
+  argaddr(3, &_stime);
+  uint64 _retime;
+  argaddr(4, &_retime);
+  
+  
+//   uint64 exitStatus;
+//   uint64 exitMsg; 
+//   argaddr(0, &exitStatus);
+//   argaddr(1, &exitMsg);
+//   return wait(exitStatus, exitMsg);
+// }
+  get_cfs_priority(new_p, _cfs_priority, _rtime, _stime, _retime);
+  return 0;
+}

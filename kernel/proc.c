@@ -126,6 +126,10 @@ found:
   p->state = USED;
   p->ps_priority = 5;
   p->accumulator = get_min_acc();
+  p-> cfs_priority = 100;
+  p-> rtime = 0;
+  p-> retime = 0;
+  p-> stime = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -467,6 +471,59 @@ wait(uint64 addr, uint64 msg)
 }
 
 
+int get_vruntime(struct proc *p){
+  return p->cfs_priority * ((p->rtime)/(p->rtime + p->stime + p->retime));
+}
+
+
+int get_min_pid(){
+  struct proc *p;
+  
+  int vruntime = 2147483647;
+  int minpid = -1;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNABLE && get_vruntime(p) < vruntime) {
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      minpid = p->pid;
+      vruntime = get_vruntime(p);
+    }
+    release(&p->lock);
+  }
+
+  return minpid;
+}
+
+
+void cfs_update_proc(){
+  struct proc* p;
+  
+  for (p = proc; p < &proc[NPROC]; p++)
+  {
+    switch (p->state)
+    {
+    case SLEEPING:
+      p->stime ++;
+      break;
+    
+    case RUNNABLE:
+      p->retime ++;
+      break;
+    
+    case RUNNING:
+      p->rtime ++;
+      break;
+    
+    default:
+      // panic("get vruntime p is not sleeping runable or running");
+      break;
+    }
+  }
+}
+
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -485,10 +542,13 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-
+    int minpid = get_min_pid();
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+      cfs_update_proc();
+      p->accumulator += p->ps_priority;
+
+      if(p->state == RUNNABLE && p->pid == minpid) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
@@ -503,15 +563,6 @@ scheduler(void)
       release(&p->lock);
     }
   }
-}
-
-void set_ps_priority(int new_ps){
-  if (new_ps < 0 ||  new_ps > 10)
-    panic("set_ps_priority value can only be between 0 to 10");
-  
-  struct proc* p;
-  p = myproc();
-  p->ps_priority = new_ps;
 }
 
 // Task 5
@@ -540,6 +591,70 @@ long long get_min_acc(){
   return num_running_proc <= 1 ? 0 : min_acc ;
 }
 
+void set_ps_priority(int new_ps){
+  if (new_ps < 0 ||  new_ps > 10)
+    panic("set_ps_priority value can only be between 0 to 10");
+  
+  struct proc* p;
+  p = myproc();
+  p->ps_priority = new_ps;
+}
+
+int set_cfs_priority(int new_priority){
+  if (new_priority != 0 && new_priority != 1 && new_priority != 2)
+    return -1;
+
+  struct proc *p;
+  p = myproc();
+  p->cfs_priority = new_priority == 0 
+                    ? 75
+                    : new_priority == 1
+                      ? 100
+                      : 125;
+
+  return 0;
+}
+
+
+void get_cfs_priority(int id, uint64 _cfs_priority, uint64 _rtime, uint64 _stime, uint64 _retime){
+// int* get_cfs_priority(int id){
+  struct proc *p;
+  for(p=proc ; p< &proc[NPROC] ; p++){
+      if(p->pid == id){
+        pagetable_t page = p->pagetable;
+
+        // copy cfs priority
+        if (_cfs_priority != 0 && copyout(page, _cfs_priority, (char*)&p->cfs_priority, sizeof(p->cfs_priority)) < 0) 
+        {
+          printf("error retrieveing CFS PRIORITY\n");
+          return;
+        }        
+        
+        // copy rtime
+        if (_rtime != 0 && copyout(page, _rtime, (char*)&p->rtime, sizeof(p->rtime)) < 0) 
+        {
+          printf("error retrieveing RTIME\n");
+          return;
+        }        
+        
+        // copy rtime
+        if (_stime != 0 && copyout(page, _stime, (char*)&p->stime, sizeof(p->stime)) < 0) 
+        {
+          printf("error retrieveing STIME\n");
+          return;
+        }        
+        
+        // copy rtime
+        if (_retime != 0 && copyout(page, _retime, (char*)&p->retime, sizeof(p->retime)) < 0) 
+        {
+          printf("error retrieveing RETIME\n");
+          return;
+        }        
+        
+      }
+  }
+}
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -563,9 +678,8 @@ sched(void)
   if(intr_get())
     panic("sched interruptible");
 
-  p->accumulator += p->ps_priority;
-
   intena = mycpu()->intena;
+
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
