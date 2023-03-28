@@ -117,3 +117,8 @@ struct proc {
 
 
 long long get_min_acc();
+
+// extern struct proc proc[NPROC];
+
+
+extern void cfs_update_proc();

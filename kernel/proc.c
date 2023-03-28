@@ -10,6 +10,7 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+
 struct proc *initproc;
 
 int nextpid = 1;
@@ -500,7 +501,6 @@ int get_min_pid(){
 
 void cfs_update_proc(){
   struct proc* p;
-  
   for (p = proc; p < &proc[NPROC]; p++)
   {
     switch (p->state)
@@ -518,7 +518,6 @@ void cfs_update_proc(){
       break;
     
     default:
-      // panic("get vruntime p is not sleeping runable or running");
       break;
     }
   }
@@ -545,8 +544,6 @@ scheduler(void)
     int minpid = get_min_pid();
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      cfs_update_proc();
-      p->accumulator += p->ps_priority;
 
       if(p->state == RUNNABLE && p->pid == minpid) {
         // Switch to chosen process.  It is the process's job
@@ -587,7 +584,7 @@ long long get_min_acc(){
     }
     release(&p->lock);
   }
-  
+  // printf("%d\n", num_running_proc);
   return num_running_proc <= 1 ? 0 : min_acc ;
 }
 
@@ -758,8 +755,8 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-        p->accumulator = get_min_acc();
         p->state = RUNNABLE;
+        p->accumulator = get_min_acc();
       }
       release(&p->lock);
     }
@@ -790,7 +787,7 @@ kill(int pid)
       }
 
       // reset acc to be min acc
-      p->accumulator = get_min_acc();
+      // p->accumulator = get_min_acc();
 
       release(&p->lock);
       return 0;

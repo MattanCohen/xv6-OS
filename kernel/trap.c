@@ -77,9 +77,11 @@ usertrap(void)
     exit(-1, "");
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2 && p->state != SLEEPING)
   {
-    //p->accumulator += p->ps_priority;
+    p->accumulator += p->ps_priority;
+    // printf("@@ %s %d\n",p->name, p->state);
+    // cfs_update_proc();
     yield();
   }
 
@@ -156,9 +158,10 @@ kerneltrap()
   struct proc *p;
   p = myproc();
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && p != 0 && p->state == RUNNING)
+  if(which_dev == 2 && p != 0 && p->state != SLEEPING)
     {
-      //p->accumulator += p->ps_priority;
+      // cfs_update_proc();
+      p->accumulator += p->ps_priority;
       yield();
     }
 
@@ -173,6 +176,7 @@ clockintr()
 {
   acquire(&tickslock);
   ticks++;
+  cfs_update_proc();
   wakeup(&ticks);
   release(&tickslock);
 }
