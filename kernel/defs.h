@@ -109,6 +109,7 @@ void            procdump(void);
 void            set_ps_priority(int);
 int             set_cfs_priority(int);
 void            get_cfs_priority(int, uint64, uint64, uint64, uint64);
+int             set_policy(int);
 // swtch.S
 void            swtch(struct context*, struct context*);
 

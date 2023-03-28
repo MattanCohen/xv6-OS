@@ -13,7 +13,7 @@ char* getInput(){
   return inputMessage;
 }
 
-int TestFunction(){
+int TestMaleForkim(){
   int test1 = 1;
 
   if (test1){
@@ -53,6 +53,41 @@ int TestFunction(){
   }
 
   exit(0, "hell - test function");
+}
+
+void loopon(){
+  for (int i = 0; i < 50000; i++)
+  {
+    int x = i + 5000000;
+    int y = x + 999;
+    x = y + i;
+  }
+}
+
+int TestFunction(){
+  
+  int pid = getpid();
+
+  int c0; int r0;int  s0;int  re0;
+  int c1;int  r1;int  s1;int  re1;
+  int c2;int  r2;int  s2;int  re2;
+
+  set_policy(0);
+  loopon();
+  get_cfs_priority(pid, &c0, &r0, &s0, &re0);
+  
+  set_policy(1);
+  loopon();
+  get_cfs_priority(pid, &c1, &r1, &s1, &re1);
+
+  set_policy(2);
+  loopon();
+  get_cfs_priority(pid, &c2, &r2,&s2, &re2);
+
+  printf("\n\n");
+  
+
+  exit (0, "hell - test function");
 }
 
 

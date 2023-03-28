@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+int sched_policy = 0;
+ 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -542,10 +544,19 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
     int minpid = get_min_pid();
+    int minacc = get_min_acc();
+    
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
 
-      if(p->state == RUNNABLE && p->pid == minpid) {
+      int ps_policy = minacc == 0 ? 1 : p->accumulator == minacc;
+
+      int policy_accepted = sched_policy == 0 ? 1
+                            : sched_policy == 1 ? ps_policy
+                            : sched_policy == 2 ? p->pid == minpid
+                            : -1; // will never get here
+
+      if(p->state == RUNNABLE && policy_accepted) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
@@ -650,6 +661,16 @@ void get_cfs_priority(int id, uint64 _cfs_priority, uint64 _rtime, uint64 _stime
         
       }
   }
+}
+
+int set_policy(int n){
+  if (n < 0 || n > 2){
+    printf("can't change sched_policy from %d to %d.\n", sched_policy, n);
+    return -1;
+  } 
+  printf("changing sched_policy from %d to %d.\n", sched_policy, n);
+  sched_policy = n;
+  return 0;
 }
 
 

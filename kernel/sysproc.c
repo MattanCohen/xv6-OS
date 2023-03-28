@@ -147,3 +147,13 @@ sys_get_cfs_priority(void)
   get_cfs_priority(new_p, _cfs_priority, _rtime, _stime, _retime);
   return 0;
 }
+
+
+uint64
+sys_set_policy(void)
+{
+  int new_policy;
+  argint(0, &new_policy);
+
+  return set_policy(new_policy);
+}
