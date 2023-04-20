@@ -1,5 +1,6 @@
 #define STACK_SIZE  4000
 #define MAX_UTHREADS  4
+#include "kernel/types.h"
 
 enum sched_priority { LOW, MEDIUM, HIGH };
 
