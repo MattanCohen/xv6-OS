@@ -132,6 +132,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	# $U/_testult\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -171,3 +172,27 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+
+qemu-no-debug-echos: $K/kernel fs.img
+	clear
+	$(QEMU) $(QEMUOPTS)
+
+reboot: 
+	clear
+	make clean qemu-no-debug-echos
+	clear
+
+delete:
+	make clean
+	clear
+
+start:
+	clear
+	make qemu-no-debug-echos
+
+temp: start-temp
+
+start-temp:
+	clear
+	make qemu-no-debug-echos
+	make delete
