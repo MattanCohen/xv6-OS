@@ -47,7 +47,7 @@ userthread* uthread_self(){
     for (int i = 0; i < MAX_UTHREADS; i++){
         current = &uthread[i];
         if (current->state == RUNNING){
-            change_current_thread_index(i);
+            // change_current_thread_index(i);
             PrintString(function_prefix, "found this thread as running: ", "\n");
             PrintUthread(function_prefix, &uthread[currentThreadIndex], "\n");
             return current;
@@ -265,6 +265,15 @@ void uthread_exit(){
 
 }
 
+bool someone_is_running(){
+    for (int i = 0; i < MAX_UTHREADS; i++){
+        if (is_running(&uthread[i]))
+            return true;
+    }
+    return false;
+}
+
+
 bool already_started_all = false;
 int uthread_start_all(){
     char* function_prefix = "uthread_start_all\t"; 
@@ -284,6 +293,7 @@ int uthread_start_all(){
 
 
     uthrun(u);
+    while (someone_is_running()) uthread_exit();
     return 0;
 }
 

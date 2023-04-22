@@ -2,19 +2,23 @@
 
 
 void create_thread1(sched_priority p){
-    uthread_create(&priority_print, p);
+    uthread_create(&test1, p);
 }
 
 void create_thread2(sched_priority p){
-    uthread_create(&print, p);
+    uthread_create(&test2, p);
 }
 
 void create_thread3(sched_priority p){
-    uthread_create(&loop, p);
+    uthread_create(&test3, p);
 }
 
 void create_thread4(sched_priority p){
-    uthread_create(&priority_change, p);
+    uthread_create(&test4, p);
+}
+
+void create_thread5(sched_priority p){
+    uthread_create(&test5, p);
 }
 
 int main(int argc, char *argv[])
@@ -28,6 +32,7 @@ int main(int argc, char *argv[])
     bool test2 = 0;
     bool test3 = 0;
     bool test4 = 0;
+    bool test5 = 0;
     
     for (int i = 1; i < argc; i++){
         int argv_atoi = atoi(argv[i]);
@@ -39,11 +44,13 @@ int main(int argc, char *argv[])
         if (strcmp(argv[i], "test2") == 0 || strcmp(argv[i], "prints") == 0)            test2 = 1;
         if (strcmp(argv[i], "test3") == 0 || strcmp(argv[i], "loops") == 0)             test3 = 1;
         if (strcmp(argv[i], "test4") == 0 || strcmp(argv[i], "priority_change") == 0)   test4 = 1;
+        if (strcmp(argv[i], "test5") == 0 || strcmp(argv[i], "create_from_ins") == 0)   test5 = 1;
     }
 
     // if no test was chosen, light test1
-    if (test1 + test2 + test3 + test4 == 0)
+    if (test1 + test2 + test3 + test4 + test5 == 0)
         test1 = 1;
+
 
     for (int i = 0; i < num_of_threads; i++){
         if (test1)
@@ -54,6 +61,8 @@ int main(int argc, char *argv[])
             create_thread3(priorities[i % (sizeof(priorities) / sizeof(sched_priority))]);
         if (test4)
             create_thread4(priorities[i % (sizeof(priorities) / sizeof(sched_priority))]);
+        if (test5)
+            create_thread5(priorities[i % (sizeof(priorities) / sizeof(sched_priority))]);
     }
 
 
