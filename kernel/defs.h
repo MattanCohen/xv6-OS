@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct kthread;
 
 // bio.c
 void            binit(void);
@@ -78,6 +79,7 @@ int             pipewrite(struct pipe*, uint64, int);
 
 // printf.c
 void            printf(char*, ...);
+void            printdebug(char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
@@ -110,6 +112,12 @@ void            procdump(void);
 // kthread.c
 void                kthreadinit(struct proc *);
 struct kthread*     mykthread();
+int allocktid(struct proc* p);
+struct kthread* allockthread(struct proc* p);
+void freekthread(struct kthread *kt);
+
+
+
 
 // TODO: delte this after you are done with task 2.2
 void allocproc_help_function(struct proc *p);

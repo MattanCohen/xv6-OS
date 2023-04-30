@@ -8,6 +8,10 @@
         "uthread.h": "c",
         "utypes.h": "c",
         "stdio.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "kthread.h": "c",
+        "proc.h": "c",
+        "cstdio": "c",
+        "memlayout.h": "c"
     },
 }

@@ -229,6 +229,7 @@ virtio_disk_rw(struct buf *b, int write)
     if(alloc3_desc(idx) == 0) {
       break;
     }
+
     sleep(&disk.free[0], &disk.vdisk_lock);
   }
 
@@ -285,6 +286,7 @@ virtio_disk_rw(struct buf *b, int write)
     sleep(b, &disk.vdisk_lock);
   }
 
+
   disk.info[idx[0]].b = 0;
   free_chain(idx[0]);
 
@@ -318,6 +320,7 @@ virtio_disk_intr()
 
     struct buf *b = disk.info[id].b;
     b->disk = 0;   // disk is done with buf
+    printdebug("virtio_disk_intr() is waking up disk b length %d\n", sizeof(b));
     wakeup(b);
 
     disk.used_idx += 1;

@@ -145,6 +145,7 @@ getcmd(char *buf, int nbuf)
 int
 main(void)
 {
+  printf("shell main\n");
   static char buf[100];
   int fd;
 
