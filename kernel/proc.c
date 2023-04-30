@@ -165,12 +165,11 @@ found:
   // p->context.ra = (uint64)forkret;
   // p->context.sp = p->kstack + PGSIZE;
 
-
-  allockthread(p);
-
   acquire(&p->ktidlock);
   p->nextktid = 1;
   release(&p->ktidlock);
+
+  allockthread(p);
   
   return p;
 }
@@ -742,11 +741,11 @@ wakeup(void *chan)
       acquire(&p->kthread[0].lock);
       if(p->kthread[0].state == SLEEPING) {
         printdebug("wakeup #%d on chan: %d\n", i, &chan);
-        printdebug("wakeup #%d kthread chan: %d\n\n", i, p->kthread[0].chan);
+        printdebug("wakeup #%d kthread chan: %d\n\n", i, (p->kthread[0].chan));
       }
 
-      if(p->kthread[0].state == SLEEPING && p->kthread[0].chan == &chan) {
-        p->state = RUNNABLE;
+      if(p->kthread[0].state == SLEEPING && p->kthread[0].chan == chan) {
+        p->kthread[0].state = RUNNABLE;
       }
       release(&p->kthread[0].lock);
       release(&p->lock);
@@ -767,9 +766,9 @@ kill(int pid)
     acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
-      if(p->state == SLEEPING){
+      if(p->kthread[0].state == SLEEPING){
         // Wake process from sleep().
-        p->state = RUNNABLE;
+        p->kthread[0].state = RUNNABLE;
       }
 
       for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT]; kt++){
