@@ -1,7 +1,7 @@
 #include "kthread.h"
 
 
-// enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { PUNUSED, PUSED, PZOMBIE };
 
 // Per-process state
 struct proc {

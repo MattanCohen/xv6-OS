@@ -59,7 +59,7 @@ procinit(void)
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
-      p->state = UNUSED;
+      p->state = PUNUSED;
       kthreadinit(p);
   }
 }
@@ -129,7 +129,7 @@ allocproc(void)
 
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
-    if(p->state == UNUSED) {
+    if(p->state == PUNUSED) {
       goto found;
     } else {
       release(&p->lock);
@@ -139,7 +139,7 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
-  p->state = USED;
+  p->state = PUSED;
 
   // Allocate a trapframe page.
   if((p->base_trapframes = (struct trapframe *)kalloc()) == 0){
@@ -180,6 +180,10 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    freekthread(kt);
+  }
   printdebug("freeproc(struct proc *p)\n");
   if(p->base_trapframes)
     kfree((void*)p->base_trapframes);
@@ -195,11 +199,7 @@ freeproc(struct proc *p)
   // p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
-  p->state = UNUSED;
-  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
-  {
-    freekthread(kt);
-  }
+  p->state = PUNUSED;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -279,13 +279,14 @@ userinit(void)
   p->kthread[0].trapframe->epc = 0;      // user program counter
   p->kthread[0].trapframe->sp = PGSIZE;  // user stack pointer
 
+  p->kthread[0].state = RUNNABLE;
+
+  release(&p->kthread[0].lock);
+
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
   // p->state = RUNNABLE;
-  p->kthread[0].state = RUNNABLE;
-  
-  release(&p->kthread[0].lock);
   release(&p->lock);
 }
 
@@ -320,7 +321,7 @@ fork(void)
 
   int i, pid;
   struct proc *np;
-  struct kthread *kt = mykthread();
+  // struct kthread *kt = mykthread();
   struct proc *p = myproc();
 
   // Allocate process.
@@ -335,13 +336,22 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+
+  np->state = PUSED;
   np->sz = p->sz;
 
   // copy saved user registers.
-  *(np->kthread[0].trapframe) = *(kt->trapframe);
+  *(np->base_trapframes) = *(p->base_trapframes);
 
   // Cause fork to return 0 in the child.
   np->kthread[0].trapframe->a0 = 0;
+
+  // // copy saved user registers.
+  // /// !!!!!!!!!!!!!!!!!!!!!!!!
+  // *(np->kthread[0].trapframe) = *(kt->trapframe);
+
+  // // Cause fork to return 0 in the child.
+  // np->kthread[0].trapframe->a0 = 0;
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
@@ -358,6 +368,7 @@ fork(void)
 
   acquire(&wait_lock);
   np->parent = p;
+  release(&wait_lock);
 
   // acquire(&np->lock);
   // acquire(&np->kthread[0].lock);
@@ -366,30 +377,31 @@ fork(void)
   // release(&np->lock);
 
   struct kthread* callingThread = &np->kthread[0];
-  struct kthread* mainThread = &p->kthread[0];
+  // struct kthread* mainThread = &p->kthread[0];
   
-  acquire(&p->lock);
-  acquire(&mainThread->lock);
+  // acquire(&p->lock);
+  // acquire(&mainThread->lock);
 
   acquire(&np->lock);
   acquire(&callingThread->lock);
   
   
   callingThread->state = RUNNABLE;
-  callingThread->chan = mainThread->chan;
-  callingThread->killed = mainThread->killed;
-  callingThread->xstate = mainThread->xstate;
-  callingThread->context.ra = mainThread->context.ra;
-  callingThread->context.sp = mainThread->context.sp;
-  callingThread->kstack = mainThread->kstack;
+  // callingThread->chan = mainThread->chan;
+  // callingThread->killed = mainThread->killed;
+  // callingThread->xstate = mainThread->xstate;
+  // callingThread->context.ra = mainThread->context.ra;
+  // callingThread->context.sp = mainThread->context.sp;
+  // callingThread->kstack = mainThread->kstack;
   
   release(&callingThread->lock);
   release(&np->lock);
   
-  release(&mainThread->lock);
-  release(&p->lock);
+  // release(&mainThread->lock);
+  // release(&p->lock);
   
-  release(&wait_lock);
+
+  printdebug("return fork pid hjjjj \n");
 
   return pid;
 }
@@ -450,7 +462,7 @@ exit(int status)
   acquire(&p->lock);
 
   p->xstate = status;
-  p->state = ZOMBIE;
+  p->state = PZOMBIE;
 
   for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
@@ -461,9 +473,9 @@ exit(int status)
     release(&kt->lock);
   }
   
-  
   release(&wait_lock);
-
+  
+  acquire(&mykthread()->lock);
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
@@ -490,7 +502,7 @@ wait(uint64 addr)
         acquire(&pp->lock);
 
         havekids = 1;
-        if(pp->state == ZOMBIE){
+        if(pp->state == PZOMBIE){
           // Found one.
           pid = pp->pid;
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
@@ -739,10 +751,10 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       acquire(&p->kthread[0].lock);
-      if(p->kthread[0].state == SLEEPING) {
-        printdebug("wakeup #%d on chan: %d\n", i, &chan);
-        printdebug("wakeup #%d kthread chan: %d\n\n", i, (p->kthread[0].chan));
-      }
+      // if(p->kthread[0].state == SLEEPING) {
+      //   printdebug("wakeup #%d on chan: %d\n", i, &chan);
+      //   printdebug("wakeup #%d kthread chan: %d\n\n", i, (p->kthread[0].chan));
+      // }
 
       if(p->kthread[0].state == SLEEPING && p->kthread[0].chan == chan) {
         p->kthread[0].state = RUNNABLE;
@@ -864,7 +876,7 @@ procdump(void)
 
   printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
-    if(p->state == UNUSED)
+    if(p->state == PUNUSED)
       continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];

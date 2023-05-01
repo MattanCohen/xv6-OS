@@ -71,13 +71,13 @@ struct context {
 };
 
 
-enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum kthreadstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct kthread
 {
   struct spinlock lock;
 
-  enum procstate state;      // Thread state
+  enum kthreadstate state;      // Thread state
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
