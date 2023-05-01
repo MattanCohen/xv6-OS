@@ -320,7 +320,6 @@ virtio_disk_intr()
 
     struct buf *b = disk.info[id].b;
     b->disk = 0;   // disk is done with buf
-    printdebug("virtio_disk_intr() is waking up disk b length %d\n", sizeof(b));
     wakeup(b);
 
     disk.used_idx += 1;

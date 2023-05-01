@@ -115,7 +115,7 @@ printf(char *fmt, ...)
     release(&pr.lock);
 }
 
-int debug = 1;
+int debug = 0;
 // Print to the console. only understands %d, %x, %p, %s.
 void
 printdebug(char *fmt, ...)

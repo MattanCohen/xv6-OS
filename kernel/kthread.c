@@ -30,10 +30,10 @@ struct kthread *mykthread()
 {
   // printdebug("mykthread()\n");
   // TODO check for push and pop 
-  // push_off();
+  push_off();
   struct cpu *c = mycpu();
   struct kthread *kt = c->kthread;
-  // pop_off();
+  pop_off();
   return kt;
 }
 
@@ -69,13 +69,15 @@ struct kthread* allockthread(struct proc* p){
 
     kt->ktid = allocktid(p);
     kt->state = USED;
-    kt->trapframe = get_kthread_trapframe(p, p->kthread);
+    kt->trapframe = get_kthread_trapframe(p, kt);
+    kt->pcb = p;
+    
     memset(&kt->context, 0, sizeof(kt->context));
     kt->context.ra = (uint64)forkret;
-    printdebug("context.ra %d\n", (int)kt->context.ra);
     kt->context.sp = kt->kstack + PGSIZE;
     return kt;
   }
+
   return 0;
 }
 
