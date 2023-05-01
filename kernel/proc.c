@@ -29,6 +29,9 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+int kthreadkilled(struct kthread* kt);
+
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -173,10 +176,6 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
-  {
-    freekthread(kt);
-  }
   printdebug("freeproc(struct proc *p)\n");
   if(p->base_trapframes)
     kfree((void*)p->base_trapframes);
@@ -193,6 +192,10 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = PUNUSED;
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    freekthread(kt);
+  }
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -508,8 +511,16 @@ wait(uint64 addr)
       }
     }
 
+    // for (int i = 0; i < NKT; i++){
+    //   struct kthread* kt = &p->kthread[i];
+    //   if (kthreadkilled(kt))
+    //     printf("kthread #%d killed\n", i);
+    // }
+    
+    
     // No point waiting if we don't have any children.
     if(!havekids || killed(p)){
+      // printf("p is killed\n");
       release(&wait_lock);
       return -1;
     }
@@ -785,6 +796,16 @@ killed(struct proc *p)
   acquire(&p->lock);
   k = p->killed;
   release(&p->lock);
+  return k;
+}
+
+int
+kthreadkilled(struct kthread *kt)
+{
+  int k;
+  acquire(&kt->lock);
+  k = kt->killed;
+  release(&kt->lock);
   return k;
 }
 

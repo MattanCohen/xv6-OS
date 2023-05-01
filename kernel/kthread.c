@@ -91,5 +91,6 @@ void freekthread(struct kthread *kt){
   kt->pcb = 0;
   kt->trapframe = 0;
   kt->state = UNUSED;
+  memset(&kt->context, 0, sizeof(kt->context));
   return;
 }
