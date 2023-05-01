@@ -293,7 +293,7 @@ int uthread_start_all(){
 
 
     uthrun(u);
-    while (someone_is_running()) uthread_exit();
+    // while (someone_is_running()) uthread_exit();
     return 0;
 }
 

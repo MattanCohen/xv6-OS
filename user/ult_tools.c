@@ -26,6 +26,7 @@ void test1(){
     printf("%s before yield\n", priority);
     uthread_yield();
     printf("%s after yield\n", priority);
+    uthread_exit();
 }
 
 
@@ -34,6 +35,7 @@ void test2(){
     uthread_print();
     uthread_yield();
     uthread_print();
+    uthread_exit();
 }
 
 
@@ -44,6 +46,7 @@ void test3(){
         uthread_print();
         uthread_yield();
     }
+    uthread_exit();
 }
 
 //      TEST 4 priority_change
@@ -58,6 +61,7 @@ void test4(){
         uthread_print();
         uthread_yield();
     }
+    uthread_exit();
 }
 
 void test5(){
@@ -74,6 +78,7 @@ void test5(){
 
     uthread_print();
     uthread_yield();
+    uthread_exit();
 }
 
 
