@@ -42,6 +42,7 @@ struct uthread {
     tcontext            context;        // uswtch() here to run process
     sched_priority      priority;       // scheduling priority
     bool                started;
+    void (*start_func);
 };
 typedef struct uthread userthread;
 

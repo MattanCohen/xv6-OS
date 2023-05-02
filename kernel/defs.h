@@ -110,12 +110,18 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 
 // kthread.c
+// task 2.2
 void                kthreadinit(struct proc *);
 struct kthread*     mykthread();
 int allocktid(struct proc* p);
 struct kthread* allockthread(struct proc* p);
 void freekthread(struct kthread *kt);
-
+// task 2.2.3
+int kthread_create( void *(*start_func)(), void *stack, uint stack_size );
+int kthread_id(); 
+int kthread_kill(int ktid); 
+void kthread_exit(int status); 
+int kthread_join(int ktid, int *status); 
 
 
 

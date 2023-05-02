@@ -121,6 +121,8 @@ void
 printdebug(char *fmt, ...)
 {
   if (!debug) return;
+  if (sizeof(fmt) > 1)
+    printf("\t\t\t\t");
   va_list ap;
   int i, c, locking;
   char *s;

@@ -31,3 +31,4 @@ struct proc {
 };
 
 void forkret(void);
+int kthreadkilled(struct kthread* kt);

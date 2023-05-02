@@ -67,6 +67,7 @@ struct kthread* allockthread(struct proc* p){
       continue;
     }
 
+    kt->killed = 0;
     kt->ktid = allocktid(p);
     kt->state = USED;
     kt->trapframe = get_kthread_trapframe(p, kt);
@@ -94,3 +95,156 @@ void freekthread(struct kthread *kt){
   memset(&kt->context, 0, sizeof(kt->context));
   return;
 }
+
+
+int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
+  
+  struct kthread* kt;
+  if ((kt = allockthread(myproc())) == 0){
+    return -1;
+  }
+  if (sizeof(stack) != stack_size){
+    return -1;
+  }
+
+  kt->state = RUNNABLE;
+  kt->kstack = (uint64)stack;
+  kt->trapframe->epc = (uint64)start_func;
+  kt->trapframe->sp = (uint64)(stack + stack_size);
+  return 0; 
+}
+
+int kthread_id(){
+  int k = -1;
+  struct kthread* kt = mykthread();
+  struct spinlock* lock = &kt->lock;
+  
+  acquire(lock);
+  k = kt->ktid;
+  release(lock);
+  
+  return k;
+  }
+
+int kthread_kill(int ktid){
+  struct proc* p = myproc();
+  struct kthread* kt;
+
+  for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    acquire(&kt->lock);
+
+    if(kt->ktid == ktid){
+      kt->killed = 1;
+
+      if(kt->state == SLEEPING){
+        kt->state = RUNNABLE;
+      }
+      release(&kt->lock);
+      return 0;
+    }
+
+    release(&kt->lock);
+  }
+
+  return -1;
+
+}
+
+
+void kthread_exit(int status){
+  // struct proc* p = myproc();
+  struct kthread* kt = mykthread();
+
+
+  int everyone_are_dead = 1;
+
+  for (struct kthread* i = kt->pcb->kthread; i < &kt->pcb->kthread[NKT] && everyone_are_dead; i++)
+  {
+    acquire(&i->lock);
+    if (i->killed == 0)
+      everyone_are_dead = 0;
+    release(&i->lock);
+  }
+
+  if (everyone_are_dead){
+    exit(status);
+  }
+  
+  // if anyone waiting for me to die
+  wakeup(kt);
+
+  acquire(&kt->lock);
+  kt->state = ZOMBIE;
+  kt->xstate = status;
+  sched();
+  panic("panic : zombie kthread exit\n");
+
+}
+
+// makes src sleep on channel dst, to wait for it to finish
+void kthread_sleep(struct kthread* src,struct kthread* dst){
+  
+  acquire(&src->lock);
+
+  src->chan = dst;
+  src->state = SLEEPING;
+
+  sched();
+ 
+  src->chan = 0;
+
+  release(&src->lock);  
+}
+
+int kthread_join(int ktid, int *status){
+  // struct kthread *mythread = mykthread();
+  struct kthread *kt;
+  struct proc *p = myproc();
+  int index = -1;
+
+  // find the index of the thread to join to 
+  for (int i =0 ; i < NKT; i++){
+    kt = &p->kthread[i];
+    acquire(&kt->lock);
+    if(kt->ktid == ktid)
+      index = i;
+    release(&kt->lock);
+  }
+
+  // if not found retuen error
+  if(index == -1){
+    return -1;
+  }
+
+  kt = &p->kthread[index];
+
+  for(;;){
+    acquire(&kt->lock);
+
+    if (kt->ktid == ktid){
+      return -1;
+    }
+    if(kt->state == ZOMBIE){
+      // if xstate is null return error 
+      if(kt->xstate){
+        // if copyout failed return error 
+        if(copyout(p->pagetable, (uint64)status,(char *)&kt->xstate, sizeof(kt->xstate)) < 0){
+          release(&kt->lock);
+          return -1;
+        }
+      }
+
+      freekthread(kt);
+      release(&kt->lock);
+      return 0;
+    }
+
+    kthread_sleep(mykthread(), kt);  //DOC: wait-sleep
+    
+  }
+
+
+}
+
+// general lock to sleep on 
