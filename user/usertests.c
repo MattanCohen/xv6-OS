@@ -791,7 +791,6 @@ void
 killstatus(char *s)
 {
   int xst;
-  // printf("\nkill status debug: \n");`
   
   for(int i = 0; i < 100; i++){
     int pid1 = fork();
@@ -799,7 +798,6 @@ killstatus(char *s)
       printf("%s: fork failed\n", s);
       exit(1);
     }
-
     if(pid1 == 0){
       while(1) {
         getpid();
@@ -807,22 +805,8 @@ killstatus(char *s)
       exit(0);
     }
     sleep(1);
-
     kill(pid1);
-    // if (kill(pid1) == 0){
-    //   printf("\t$ - usertests/killstats: killed pid %d successfuly\n", pid1);
-    // }
-    // else{
-    //   printf("\t$ - usertests/killstats: couldnt find pid %d\n", pid1);
-    // }
-
-    // printf("\t$ - usertests/killstats: going to wait\n");
-    
-    // kthread_join(kt1, kt2);
     wait(&xst);
-
-    // printf("\t$ - usertests/killstats: back from wait got exitstatus: %d\n", xst);
-    
     if(xst != -1) {
        printf("%s: status should be -1\n", s);
        exit(1);
