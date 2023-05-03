@@ -521,6 +521,7 @@ wait(uint64 addr)
 void
 scheduler(void)
 {
+  printdebug("in scheduler()\n");
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -529,12 +530,25 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
     for(p = proc; p < &proc[NPROC]; p++) {
-      // acquire(&p->lock);
+      int num_of_running_procs = 0;
+      for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+      {
+        acquire(&kt->lock);
+        if (kt->state == RUNNING){
+          num_of_running_procs++;
+        } 
+        release(&kt->lock);
+      }
+      if (num_of_running_procs > 1){
+        printerror("there are currently %d running threads in proccess #%d!\n", num_of_running_procs, myproc() ? myproc()->pid : -15);
+        break;
+      }
       for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT]; kt++)
       {
         acquire(&kt->lock);
 
         if(kt->state == RUNNABLE) {
+          SetDebug(1);
           if(p->state != PUSED)
               panic("kthread is runnable while proc is not used\n");
           
@@ -544,13 +558,32 @@ scheduler(void)
           kt->state = RUNNING;
           c->kthread = kt;
           // moved from PCB to KTCB
+          int ktid = kt->ktid;
+          printdebug("scheduler starting to run kthread %d\n", ktid);
           swtch(&c->context, &kt->context);
-          
+          printdebug("in scheduler aftetr swtch %d\n", ktid);
           // Process is done running for now.
           // It should have changed its p->state before coming back.
           c->kthread = 0;
-        }
 
+          struct kthread* mykthread = kt;
+          printerror("kthread mykthread id %d state = %s\n",mykthread->ktid , mykthread->state == RUNNABLE ? "Runnable" : 
+                                             mykthread->state == RUNNING ? "Running" :  
+                                             mykthread->state == SLEEPING ? "Sleeping" :  
+                                             mykthread->state == USED ? "USED" :  
+                                             mykthread->state == UNUSED ? "UNUSED" :  
+                                             mykthread->state == ZOMBIE ? "ZOMBIE" :  
+                                             "ERROR"
+                                             ); 
+          if (kt->state == RUNNING){
+            printerror("kt is still running");
+            kt--;
+          }
+
+        
+          SetDebug(0);
+        }
+          
         release(&kt->lock);
       }
     }
@@ -585,7 +618,10 @@ sched(void)
 
   intena = mycpu()->intena;
   // moved from PCB to KTCB
+  printdebug("sched() before swtch kt : %d \n", kt->ktid);
+
   swtch(&kt->context, &mycpu()->context);
+  printdebug("sched() after swtch kt : %d \n", kt->ktid);
   mycpu()->intena = intena;
 }
 

@@ -115,12 +115,30 @@ printf(char *fmt, ...)
     release(&pr.lock);
 }
 
-int debug = 1;
+int force_debug = 0;
+
+
+int debug = 0;
+void SetDebug(int to){
+  if (force_debug && debug != to) printf(to ? "----TURNING DEBUG MODE ON----\n" : "----TURNING DEBUG MODE OFF----\n");
+  debug = to;
+}
+
+int started = 0;
+struct spinlock print_lock;
+
+int IsDebugOff(){return !debug || !force_debug;}
 // Print to the console. only understands %d, %x, %p, %s.
 void
 printdebug(char *fmt, ...)
 {
-  if (!debug) return;
+  if (IsDebugOff()) return;
+
+  if (!started){
+    started = 1;
+    initlock(&print_lock, "print_lock");
+  } 
+  acquire(&print_lock);
   if (sizeof(fmt) > 1)
     printf("♥  -  ");
   va_list ap;
@@ -173,6 +191,74 @@ printdebug(char *fmt, ...)
 
   if(locking)
     release(&pr.lock);
+  release(&print_lock);
+  
+}
+
+void
+printerror(char *fmt, ...)
+{
+  if (IsDebugOff()) return;
+
+  if (!started){
+    started = 1;
+    initlock(&print_lock, "print_lock");
+  } 
+  acquire(&print_lock);
+  if (sizeof(fmt) > 1)
+    printf("!!! ERROR  -  ");
+  va_list ap;
+  int i, c, locking;
+  char *s;
+
+  locking = pr.locking;
+  if(locking)
+    acquire(&pr.lock);
+
+  if (fmt == 0)
+    panic("null fmt");
+
+  va_start(ap, fmt);
+  for(i = 0; (c = fmt[i] & 0xff) != 0; i++){
+    if(c != '%'){
+      consputc(c);
+      continue;
+    }
+    c = fmt[++i] & 0xff;
+    if(c == 0)
+      break;
+    switch(c){
+    case 'd':
+      printint(va_arg(ap, int), 10, 1);
+      break;
+    case 'x':
+      printint(va_arg(ap, int), 16, 1);
+      break;
+    case 'p':
+      printptr(va_arg(ap, uint64));
+      break;
+    case 's':
+      if((s = va_arg(ap, char*)) == 0)
+        s = "(null)";
+      for(; *s; s++)
+        consputc(*s);
+      break;
+    case '%':
+      consputc('%');
+      break;
+    default:
+      // Print unknown % sequence to draw attention.
+      consputc('%');
+      consputc(c);
+      break;
+    }
+  }
+  va_end(ap);
+
+  if(locking)
+    release(&pr.lock);
+  release(&print_lock);
+  
 }
 
 void

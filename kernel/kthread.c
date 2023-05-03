@@ -54,7 +54,6 @@ int allocktid(struct proc* p){
     newktid = p->nextktid ;
     p->nextktid = p->nextktid + 1;
     release(&p->ktidlock);
-    printdebug("finished allocktid with %d\n", newktid);
     return newktid;
 }
 
@@ -77,7 +76,6 @@ struct kthread* allockthread(struct proc* p){
     memset(&kt->context, 0, sizeof(kt->context));
     kt->context.ra = (uint64)forkret;
     kt->context.sp = kt->kstack + PGSIZE;
-    printdebug("finished allockthread with ktid %d\n", kt->ktid);
     return kt;
   }
 
@@ -98,23 +96,26 @@ void freekthread(struct kthread *kt){
   return;
 }
 
+void hi(){
+  printf("Hi noa!\n");
+}
 
 int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
+  SetDebug(1);
   printdebug("kthread_create()\n");
-  
+
+
   struct kthread* kt;
   int ktid = -1;
-  
+
   if ((kt = allockthread(myproc())) == 0){
     printdebug("in ktread creat - alloctread faild\n");
     return -1;
   }
 
-  // if (sizeof(stack) != stack_size){
-  //   printdebug("in ktread creat - stacksize is %d and supposed to be %d\n", sizeof(stack), stack_size);
-  //   return -1;
   // }
-
+  // printf("start_func = %d\n", start_func);
+  
   ktid = kt->ktid;
   kt->state = RUNNABLE;
   kt->kstack = (uint64)stack;
@@ -205,13 +206,31 @@ void kthread_sleep(struct kthread* mykthread,struct kthread* join_to){
   printdebug("kthread_sleep()\n");
   
   acquire(&mykthread->lock);
-  release(&join_to->lock);
+
 
   mykthread->chan = join_to;
+  printdebug("kthread sleep before sched() ktid %d\n", mykthread->ktid);
+  printdebug("kthread jointo id %d state = %s\n",join_to->ktid , join_to->state == RUNNABLE ? "Runnable" : 
+                                             join_to->state == RUNNING ? "Running" :  
+                                             join_to->state == SLEEPING ? "Sleeping" :  
+                                             join_to->state == USED ? "USED" :  
+                                             join_to->state == UNUSED ? "UNUSED" :  
+                                             join_to->state == ZOMBIE ? "ZOMBIE" :  
+                                             "ERROR"
+                                             );
+  printdebug("kthread mykthread id %d state = %s\n",mykthread->ktid , mykthread->state == RUNNABLE ? "Runnable" : 
+                                             mykthread->state == RUNNING ? "Running" :  
+                                             mykthread->state == SLEEPING ? "Sleeping" :  
+                                             mykthread->state == USED ? "USED" :  
+                                             mykthread->state == UNUSED ? "UNUSED" :  
+                                             mykthread->state == ZOMBIE ? "ZOMBIE" :  
+                                             "ERROR"
+                                             );                                           
   mykthread->state = SLEEPING;
-
+  release(&join_to->lock);
   sched();
- 
+  printdebug("kthread sleep after sched()\n");
+  
   mykthread->chan = 0;
 
   release(&mykthread->lock);  
@@ -219,15 +238,20 @@ void kthread_sleep(struct kthread* mykthread,struct kthread* join_to){
 }
 
 int kthread_join(int ktid, int *status){
-  printdebug("kthread_join()\n"); //, mykthread is holding? %s\n", holding(&mykthread()->lock) ? "yes" : "no");
+  printdebug("kthread_join( mykthread id - %d, jointo id - %d)\n", kthread_id(), ktid); //, mykthread is holding? %s\n", holding(&mykthread()->lock) ? "yes" : "no");
   // struct kthread *mythread = mykthread();
   struct kthread *kt;
   struct kthread *join_to;
   struct proc *p = myproc();
   int found = 0;
 
+  if (kthread_id() == ktid){
+    printdebug("to join ktid is my ktid \n");
+    return -1;
+  }
+
   // find the index of the thread to join to 
-  for (kt = p->kthread ; kt < &p->kthread[NKT]; kt++){
+  for (kt = p->kthread ; kt < &p->kthread[NKT] && !found; kt++){
     int holdingkth = 1;
     if(!holding(&kt->lock)){
       acquire(&kt->lock);
@@ -237,19 +261,20 @@ int kthread_join(int ktid, int *status){
       join_to = kt;
       found = 1;
     }
-    if (!holdingkth)
+    else if (!holdingkth)
       release(&kt->lock);
   }
 
   // if not found retuen error
   if(!found){
-    printdebug("to join not found \n");
+    printdebug("thread to join not found \n");
     return -1;
   }
 
 
+
+
   for(;;){
-    acquire(&join_to->lock);
     
     if(join_to->state == ZOMBIE){
       // if xstate is null return error, if copyout failed return error 
