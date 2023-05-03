@@ -1,3 +1,4 @@
+
 K=kernel
 U=user
 
@@ -134,7 +135,6 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_ult\
-	$U/_klt\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -196,5 +196,5 @@ temp: start-temp
 
 start-temp:
 	clear
-	make qemu-no-debug-echos
 	make delete
+	make qemu-no-debug-echos
