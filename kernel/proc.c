@@ -54,7 +54,6 @@ proc_mapstacks(pagetable_t kpgtbl)
 void
 procinit(void)
 {
-  printdebug("procinit(void)\n");
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
@@ -108,7 +107,6 @@ myproc(void)
 int
 allocpid()
 {
-  printdebug("allocpid()\n");
 
   int pid;
   
@@ -127,7 +125,6 @@ allocpid()
 static struct proc*
 allocproc(void)
 {
-  printdebug("allocproc()\n");
 
   struct proc *p;
 
@@ -175,7 +172,6 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  printdebug("freeproc(struct proc *p)\n");
   if(p->base_trapframes)
     kfree((void*)p->base_trapframes);
   p->base_trapframes = 0;
@@ -258,7 +254,6 @@ uchar initcode[] = {
 void
 userinit(void)
 {
-  printdebug("userinit(void)\n");
   struct proc *p;
 
   p = allocproc();
@@ -291,7 +286,6 @@ userinit(void)
 int
 growproc(int n)
 {
-  printdebug("growproc(int n)\n");
 
   uint64 sz;
   struct proc *p = myproc();
@@ -329,7 +323,6 @@ void copy_kthread(struct kthread* out_kt, struct kthread* kt_in){
 int
 fork(void)
 {
-  printdebug("fork()\n");
 
   int i, pid;
   struct proc *np;
@@ -418,7 +411,6 @@ reparent(struct proc *p)
 void
 exit(int status)
 {
-  printdebug("exit(int status)\n");
   struct proc *p = myproc();
 
   if(p == initproc)
@@ -529,7 +521,6 @@ wait(uint64 addr)
 void
 scheduler(void)
 {
-  printdebug("scheduler()\n");
   struct proc *p;
   struct cpu *c = mycpu();
   
@@ -576,7 +567,6 @@ scheduler(void)
 void
 sched(void)
 {
-  printdebug("sched()\n");
 
   int intena;
   // struct proc *p = myproc();
@@ -603,7 +593,6 @@ sched(void)
 void
 yield(void)
 {
-  printdebug("yield()\n");
   struct kthread *kt = mykthread();
 
   acquire(&kt->lock);
@@ -620,7 +609,6 @@ yield(void)
 void
 forkret(void)
 {
-  printdebug("forkret()\n");
   static int first = 1;
 
   // Still holding p->lock from scheduler.
@@ -643,7 +631,6 @@ forkret(void)
 void
 sleep(void *chan, struct spinlock *lk)
 {
-  printdebug("sleep()\n");
   // printdebug("sleep chan : %d\n", &chan);
   struct kthread *kt = mykthread();
   
@@ -708,7 +695,6 @@ wakeup(void *chan)
 int
 kill(int pid)
 {
-  printdebug("kill(int pid)\n");
 
   struct proc *p;
 
@@ -737,7 +723,6 @@ kill(int pid)
 void
 setkilled(struct proc *p)
 {
-  printdebug("setkilled(struct proc *p)\n");
 
   acquire(&p->lock);
   p->killed = 1;

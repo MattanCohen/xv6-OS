@@ -1,5 +1,6 @@
 #include "user/utools.h"
 
+#define MAX_STACK_SIZE 4000
 
 extern void uswtch(struct context*, struct context*);
 

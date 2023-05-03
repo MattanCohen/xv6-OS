@@ -115,14 +115,14 @@ printf(char *fmt, ...)
     release(&pr.lock);
 }
 
-int debug = 0;
+int debug = 1;
 // Print to the console. only understands %d, %x, %p, %s.
 void
 printdebug(char *fmt, ...)
 {
   if (!debug) return;
   if (sizeof(fmt) > 1)
-    printf("\t\t\t\t");
+    printf("♥  -  ");
   va_list ap;
   int i, c, locking;
   char *s;
