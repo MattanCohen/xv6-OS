@@ -115,7 +115,7 @@ printf(char *fmt, ...)
     release(&pr.lock);
 }
 
-int force_debug = 0;
+int force_debug = 1;
 
 
 int debug = 0;

@@ -106,9 +106,7 @@ void freekthread(struct kthread *kt){
 }
 
 int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
-  SetDebug(1);
   printdebug("kthread_create(). calling thread ktid: %d state: %s\n", kthread_id(), ktStateToString(mykthread()->state));
-
 
   struct kthread* kt;
   int ktid = -1;
@@ -169,6 +167,23 @@ int kthread_kill(int ktid){
   return -1;
 
 }
+void kthread_wakeup(void *chan)
+{
+  // printdebug("wakeup(void *chan)\n");
+
+  struct proc *p = myproc();
+
+  for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    acquire(&kt->lock);
+    
+    if(kt->state == SLEEPING && kt->chan == chan) {
+      kt->state = RUNNABLE;
+    }
+    release(&kt->lock);
+  }
+
+}
 
 
 void kthread_exit(int status){
@@ -192,7 +207,7 @@ void kthread_exit(int status){
   }
   
   // if anyone waiting for me to die
-  wakeup(kt);
+  kthread_wakeup(kt);
 
   acquire(&kt->lock);
   kt->state = ZOMBIE;

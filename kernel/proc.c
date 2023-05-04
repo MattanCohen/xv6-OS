@@ -560,7 +560,6 @@ scheduler(void)
 
         if(kt->state == RUNNABLE) {
           found = 1;
-          SetDebug(1);
           if(p->state != PUSED)
               panic("kthread is runnable while proc is not used\n");
           
@@ -586,7 +585,6 @@ scheduler(void)
           }
 
         
-          SetDebug(0);
         }
           
         release(&kt->lock);
