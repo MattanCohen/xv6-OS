@@ -100,7 +100,7 @@ uint64 sys_kthread_create(void){
   int size;
   argint(2, &size);
 
-  return kthread_create((void *(*)())func,(void*)stack,(uint)size);
+  return kthread_create((void *)func,(void*)stack,(uint)size);
 }
 
 uint64 sys_kthread_id(void){

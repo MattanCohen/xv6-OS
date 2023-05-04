@@ -118,15 +118,11 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
     return -1;
   }
 
-  // }
-  // printf("start_func = %d\n", start_func);
-  
   ktid = kt->ktid;
-  kt->state = RUNNABLE;
-  kt->kstack = (uint64)stack;
   kt->trapframe->epc = (uint64)start_func;
-  kt->trapframe->sp = (uint64)(stack) + stack_size;
+  kt->trapframe->sp = (uint64)(stack + stack_size);
 
+  kt->state = RUNNABLE;
   release(&kt->lock);
 
   printdebug("finished create on ktid %d\n", ktid);
