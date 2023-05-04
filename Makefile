@@ -199,3 +199,8 @@ start-temp:
 	clear
 	make delete
 	make qemu-no-debug-echos
+
+restart:
+	clear
+	make delete
+	make qemu-no-debug-echos

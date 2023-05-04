@@ -67,7 +67,6 @@ int allocktid(struct proc* p){
 }
 
 struct kthread* allockthread(struct proc* p){
-  printdebug("allockthread(struct proc* p)\n");
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     acquire(&kt->lock);
@@ -76,18 +75,20 @@ struct kthread* allockthread(struct proc* p){
       continue;
     }
 
-    kt->killed = 0;
     kt->ktid = allocktid(p);
     kt->state = USED;
+
+    kt->killed = 0;
     kt->trapframe = get_kthread_trapframe(p, kt);
     kt->pcb = p;
-    
     memset(&kt->context, 0, sizeof(kt->context));
     kt->context.ra = (uint64)forkret;
     kt->context.sp = kt->kstack + PGSIZE;
+    
+    
     return kt;
   }
-
+  
   return 0;
 }
 
@@ -106,13 +107,11 @@ void freekthread(struct kthread *kt){
 }
 
 int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
-  printdebug("kthread_create(). calling thread ktid: %d state: %s\n", kthread_id(), ktStateToString(mykthread()->state));
 
   struct kthread* kt;
   int ktid = -1;
 
   if ((kt = allockthread(myproc())) == 0){
-    printdebug("in ktread creat - alloctread faild\n");
     return -1;
   }
 
@@ -123,13 +122,11 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
   kt->state = RUNNABLE;
   release(&kt->lock);
 
-  printdebug("finished create on ktid %d\n", ktid);
 
   return ktid; 
 }
 
 int kthread_id(){
-  printdebug("kthread_id()\n");
   
   int k = -1;
   struct kthread* kt = mykthread();
@@ -143,7 +140,7 @@ int kthread_id(){
   }
 
 int kthread_kill(int ktid){
-  printdebug("kthread_kill()\n");
+  // printdebug("kthread_kill()\n");
   struct proc* p = myproc();
   struct kthread* kt;
 
@@ -187,7 +184,7 @@ void kthread_wakeup(void *chan)
 
 
 void kthread_exit(int status){
-  printdebug("kthread_exit()\n");
+  // printdebug("kthread_exit()\n");
   // struct proc* p = myproc();
   struct kthread* kt = mykthread();
 
@@ -219,19 +216,17 @@ void kthread_exit(int status){
 
 // makes mykthread sleep on channel join_to, to wait for it to finish
 void kthread_sleep(struct kthread* mykthread,struct kthread* join_to){
-  printdebug("kthread_sleep()\n");
-  
   acquire(&mykthread->lock);
 
 
   mykthread->chan = join_to;
-  printdebug("kthread sleep before sched() ktid %d\n", mykthread->ktid);
-  printdebug("kthread jointo id %d state = %s\n",join_to->ktid , ktStateToString(join_to->state));
-  printdebug("kthread mykthread id %d state = %s\n",mykthread->ktid , ktStateToString(mykthread->state));                                           
+  // printdebug("kthread sleep before sched() ktid %d\n", mykthread->ktid);
+  // printdebug("kthread jointo id %d state = %s\n",join_to->ktid , ktStateToString(join_to->state));
+  // printdebug("kthread mykthread id %d state = %s\n",mykthread->ktid , ktStateToString(mykthread->state));                                           
   mykthread->state = SLEEPING;
   release(&join_to->lock);
   sched();
-  printdebug("kthread sleep after sched()\n");
+  // printdebug("kthread sleep after sched()\n");
   
   mykthread->chan = 0;
 
@@ -239,8 +234,8 @@ void kthread_sleep(struct kthread* mykthread,struct kthread* join_to){
   acquire(&join_to->lock);
 }
 
-int kthread_join(int ktid, int *status){
-  printdebug("kthread_join().\n");
+int kthread_join(int ktid, uint64 status){
+  // printdebug("kthread_join().\n");
   // struct kthread *mythread = mykthread();
   struct kthread *kt;
   struct kthread *join_to;
@@ -248,7 +243,7 @@ int kthread_join(int ktid, int *status){
   int found = 0;
 
   if (kthread_id() == ktid){
-    printdebug("to join ktid is my ktid \n");
+    // printdebug("to join ktid is my ktid \n");
     return -1;
   }
 
@@ -262,7 +257,7 @@ int kthread_join(int ktid, int *status){
     if(kt->ktid == ktid){
       join_to = kt;
       found = 1;
-      printdebug("kthread_join(). calling thread ktid: %d state - %s, jointo ktid - %d state - %s\n", kthread_id(), ktStateToString(mykthread()->state), ktid, ktStateToString(kt->state));
+      // printdebug("kthread_join(). calling thread ktid: %d state - %s, jointo ktid - %d state - %s\n", kthread_id(), ktStateToString(mykthread()->state), ktid, ktStateToString(kt->state));
     }
     else if (!holdingkth)
       release(&kt->lock);
@@ -270,7 +265,7 @@ int kthread_join(int ktid, int *status){
 
   // if not found retuen error
   if(!found){
-    printdebug("thread to join not found \n");
+    // printdebug("thread to join not found \n");
     return -1;
   }
 
@@ -280,19 +275,16 @@ int kthread_join(int ktid, int *status){
   for(;;){
     
     if(join_to->state == ZOMBIE){
-      // if xstate is null return error, if copyout failed return error 
-      if(!join_to->xstate || copyout(p->pagetable, (uint64)status,(char *)&join_to->xstate, sizeof(join_to->xstate)) < 0){
+      if(status != 0 &&  copyout(p->pagetable, status,(char *)&join_to->xstate, sizeof(join_to->xstate)) < 0){
         release(&join_to->lock);
         return -1;
       }
-
+      
       freekthread(join_to);
       release(&join_to->lock);
       return 0;
     }
   
-    printdebug("kthread_join going to sleep\n");
-    
     kthread_sleep(mykthread(), join_to);  //DOC: wait-sleep
     
   }

@@ -1,27 +1,60 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "user/testkthreadexec.c"
+#include "user/testkthreadfork.c"
+#include "user/testkthreadkilljoin.c"
+
+
 
 #define MAX_STACK_SIZE 4000
 
+struct test {
+  void (*f)();
+  char *s;
+} tests [] = {
+  {test_kthread_fork, "test kthread fork"},
+  {test_kthread_kill_join, "test kthread kill join"},
+  {test_kthread_exec, "test kthread exec"},
+  
+  {0, 0},
+};
 
-void kthread_start_func(void){
-    printf("☺☻☺☻☺ Hi! ☺☻☺☻☺ \n");
-    kthread_exit(kthread_id());
+void starting_tests(){
+    printf("\n♥\t-\tstarting all tests\n");
 }
+
+void performing_test(struct test* test){
+    printf("\n------------------- starting test \"%s\" -------------------\n", test->s);
+    test->f();
+    printf("------------------------------------------------------------\n");
+}
+
+void finished_tests(){
+    printf("\n♥\t-\tfinished all tests\n");
+}
+
 
 int
 main(int argc, char *argv[])
 {
-    int xstatus = -1;
-    uint64 stack = (uint64)malloc(MAX_STACK_SIZE);
 
-    int kt = kthread_create((void *(*)())kthread_start_func, (void*)stack, MAX_STACK_SIZE);
-    kthread_join(kt, &xstatus);
 
-    printf("finished klt #%d !!! xstatus = %d\n", kt, xstatus);
-    exit(0);
+    starting_tests();
+
+    int done = 0;
+    for (struct test* test = tests; test < &tests[9999] && !done; test++)
+    {
+        if (tests->s || !tests->f){
+            done = 1;
+        }
+        performing_test(test);
+    }
     
+
+    finished_tests();
+    
+    exit(0);
 }
 
 

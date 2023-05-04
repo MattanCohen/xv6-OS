@@ -312,10 +312,14 @@ growproc(int n)
   return 0;
 }
 
+int i = 0;
 
-void copy_kthread(struct kthread* out_kt, struct kthread* kt_in){
-  acquire(&kt_in->lock);
-  acquire(&out_kt->lock);
+void counter(int reset){
+  if (reset) i = 0;
+  printdebug("%d\n", ++i);
+}
+
+void copy_kthread_for_fork(struct kthread* out_kt, struct kthread* kt_in){
   
   out_kt->state = kt_in->state;
   out_kt->chan = kt_in->chan;
@@ -353,7 +357,7 @@ fork(void)
 
   np->state = PUSED;
   np->sz = p->sz;
-
+  
   // copy saved user registers.
   *(np->base_trapframes) = *(p->base_trapframes);
 
@@ -382,19 +386,40 @@ fork(void)
 
   // copy threads from one another
   acquire(&np->lock);
-  
   struct kthread* kt;
   struct kthread* nkt;
   for (kt = p->kthread, nkt = np->kthread; kt < &p->kthread[NKT] && nkt < &np->kthread[NKT]; kt++, nkt++)
   {
-    copy_kthread(nkt, kt);
+    acquire(&kt->lock);
+    if (nkt->state == UNUSED){
+      nkt = allockthread(np);
+    }
+    else
+      acquire(&nkt->lock);
+    copy_kthread_for_fork(nkt, kt);
+
+    counter(1);
     acquire(&nkt->lock);
+    counter(0);
+
+
     if (nkt->state == RUNNING){
+    counter(1);
       nkt->state = RUNNABLE;
       // Cause fork to return 0 in the child.
+    counter(0);
+      // if (!nkt->trapframe) {
+      //   printf("nkt trapfram == 0 \n");
+      // }
+      // if (nkt->trapframe->ra) printf(" nkt trapframe is %d\n", nkt->trapframe->ra);
+      
       nkt->trapframe->a0 = 0;
+    counter(0);
     }
+
+    counter(0);
     release(&nkt->lock);
+    counter(0);
   }
   release(&np->lock);
   return pid;
@@ -550,7 +575,6 @@ scheduler(void)
         release(&kt->lock);
       }
       if (num_of_running_procs > 1){
-        printerror("there are currently %d running threads in proccess #%d!\n", num_of_running_procs, myproc() ? myproc()->pid : -15);
         break;
       }
       int found = 0;
@@ -569,18 +593,12 @@ scheduler(void)
           kt->state = RUNNING;
           c->kthread = kt;
           // moved from PCB to KTCB
-          int ktid = kt->ktid;
-          printdebug("scheduler starting to run kthread %d\n", ktid);
           swtch(&c->context, &kt->context);
-          printdebug("in scheduler aftetr swtch %d\n", ktid);
           // Process is done running for now.
           // It should have changed its p->state before coming back.
           c->kthread = 0;
 
-          struct kthread* mykthread = kt;
-          printerror("kthread mykthread id %d state = %s\n",mykthread->ktid , StateToString(mykthread->state)); 
           if (kt->state == RUNNING){
-            printerror("kt is still running");
             kt--;
           }
 
@@ -621,10 +639,8 @@ sched(void)
 
   intena = mycpu()->intena;
   // moved from PCB to KTCB
-  printdebug("sched() before swtch kt : %d \n", kt->ktid);
 
   swtch(&kt->context, &mycpu()->context);
-  printdebug("sched() after swtch kt : %d \n", kt->ktid);
   mycpu()->intena = intena;
 }
 
@@ -632,11 +648,11 @@ sched(void)
 void
 yield(void)
 {
-  printdebug("yield() ");
-  if (mykthread())
-    printdebug("with mykthread kid %d on state - %s\n", kthread_id(), StateToString(mykthread()->state));
-  else
-    printdebug("with no mykthread\n");
+  // printdebug("yield() ");
+  // if (mykthread())
+  //   printdebug("with mykthread kid %d on state - %s\n", kthread_id(), StateToString(mykthread()->state));
+  // else
+  //   printdebug("with no mykthread\n");
     
   struct kthread *kt = mykthread();
 

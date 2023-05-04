@@ -123,8 +123,9 @@ uint64 sys_kthread_exit(void){
 uint64 sys_kthread_join(void){
   int ktid;
   argint(0, &ktid);
+  
   uint64 status;
   argaddr(1, &status);
 
-	return kthread_join(ktid, (int*)&status);
+	return kthread_join(ktid, status);
 }
