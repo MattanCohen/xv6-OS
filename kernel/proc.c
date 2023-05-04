@@ -6,6 +6,16 @@
 #include "proc.h"
 #include "defs.h"
 
+char* StateToString(enum kthreadstate s){
+return  s == RUNNABLE   ? "Runnable" : 
+        s == RUNNING    ? "Running" :  
+        s == SLEEPING   ? "Sleeping" :  
+        s == USED       ? "USED" :  
+        s == UNUSED     ? "UNUSED" :  
+        s == ZOMBIE     ? "ZOMBIE" :  
+                        "ERROR";
+}
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -543,11 +553,13 @@ scheduler(void)
         printerror("there are currently %d running threads in proccess #%d!\n", num_of_running_procs, myproc() ? myproc()->pid : -15);
         break;
       }
-      for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+      int found = 0;
+      for (struct kthread* kt = p->kthread; kt < &p->kthread[NKT] && !found; kt++)
       {
         acquire(&kt->lock);
 
         if(kt->state == RUNNABLE) {
+          found = 1;
           SetDebug(1);
           if(p->state != PUSED)
               panic("kthread is runnable while proc is not used\n");
@@ -567,14 +579,7 @@ scheduler(void)
           c->kthread = 0;
 
           struct kthread* mykthread = kt;
-          printerror("kthread mykthread id %d state = %s\n",mykthread->ktid , mykthread->state == RUNNABLE ? "Runnable" : 
-                                             mykthread->state == RUNNING ? "Running" :  
-                                             mykthread->state == SLEEPING ? "Sleeping" :  
-                                             mykthread->state == USED ? "USED" :  
-                                             mykthread->state == UNUSED ? "UNUSED" :  
-                                             mykthread->state == ZOMBIE ? "ZOMBIE" :  
-                                             "ERROR"
-                                             ); 
+          printerror("kthread mykthread id %d state = %s\n",mykthread->ktid , StateToString(mykthread->state)); 
           if (kt->state == RUNNING){
             printerror("kt is still running");
             kt--;
@@ -629,6 +634,12 @@ sched(void)
 void
 yield(void)
 {
+  printdebug("yield() ");
+  if (mykthread())
+    printdebug("with mykthread kid %d on state - %s\n", kthread_id(), StateToString(mykthread()->state));
+  else
+    printdebug("with no mykthread\n");
+    
   struct kthread *kt = mykthread();
 
   acquire(&kt->lock);

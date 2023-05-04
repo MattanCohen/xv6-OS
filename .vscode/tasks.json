@@ -28,8 +28,9 @@
                 "reveal": "always",
                 "focus": true
             },
-            "group": "build"
-            ,"detail": "make start"
+            "group": "build",
+            "detail": "make start",
+            "problemMatcher": []
         },
         {
             "label": "Wipe data",

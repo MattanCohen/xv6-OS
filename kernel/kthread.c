@@ -6,6 +6,16 @@
 #include "proc.h"
 #include "defs.h"
 
+char* ktStateToString(enum kthreadstate s){
+return  s == RUNNABLE   ? "Runnable" : 
+        s == RUNNING    ? "Running" :  
+        s == SLEEPING   ? "Sleeping" :  
+        s == USED       ? "USED" :  
+        s == UNUSED     ? "UNUSED" :  
+        s == ZOMBIE     ? "ZOMBIE" :  
+                        "ERROR";
+}
+
 extern struct proc proc[NPROC];
 
 // initalize kthread table
@@ -47,7 +57,6 @@ void allocproc_help_function(struct proc *p) {
 }
 
 int allocktid(struct proc* p){
-  printdebug("allocktid(struct proc* p)\n");
 
     int newktid;
     acquire(&p->ktidlock);
@@ -96,13 +105,9 @@ void freekthread(struct kthread *kt){
   return;
 }
 
-void hi(){
-  printf("Hi noa!\n");
-}
-
 int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
   SetDebug(1);
-  printdebug("kthread_create()\n");
+  printdebug("kthread_create(). calling thread ktid: %d state: %s\n", kthread_id(), ktStateToString(mykthread()->state));
 
 
   struct kthread* kt;
@@ -120,7 +125,7 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size ){
   kt->state = RUNNABLE;
   kt->kstack = (uint64)stack;
   kt->trapframe->epc = (uint64)start_func;
-  kt->trapframe->sp = (uint64)(stack + stack_size);
+  kt->trapframe->sp = (uint64)(stack) + stack_size;
 
   release(&kt->lock);
 
@@ -210,22 +215,8 @@ void kthread_sleep(struct kthread* mykthread,struct kthread* join_to){
 
   mykthread->chan = join_to;
   printdebug("kthread sleep before sched() ktid %d\n", mykthread->ktid);
-  printdebug("kthread jointo id %d state = %s\n",join_to->ktid , join_to->state == RUNNABLE ? "Runnable" : 
-                                             join_to->state == RUNNING ? "Running" :  
-                                             join_to->state == SLEEPING ? "Sleeping" :  
-                                             join_to->state == USED ? "USED" :  
-                                             join_to->state == UNUSED ? "UNUSED" :  
-                                             join_to->state == ZOMBIE ? "ZOMBIE" :  
-                                             "ERROR"
-                                             );
-  printdebug("kthread mykthread id %d state = %s\n",mykthread->ktid , mykthread->state == RUNNABLE ? "Runnable" : 
-                                             mykthread->state == RUNNING ? "Running" :  
-                                             mykthread->state == SLEEPING ? "Sleeping" :  
-                                             mykthread->state == USED ? "USED" :  
-                                             mykthread->state == UNUSED ? "UNUSED" :  
-                                             mykthread->state == ZOMBIE ? "ZOMBIE" :  
-                                             "ERROR"
-                                             );                                           
+  printdebug("kthread jointo id %d state = %s\n",join_to->ktid , ktStateToString(join_to->state));
+  printdebug("kthread mykthread id %d state = %s\n",mykthread->ktid , ktStateToString(mykthread->state));                                           
   mykthread->state = SLEEPING;
   release(&join_to->lock);
   sched();
@@ -238,7 +229,7 @@ void kthread_sleep(struct kthread* mykthread,struct kthread* join_to){
 }
 
 int kthread_join(int ktid, int *status){
-  printdebug("kthread_join( mykthread id - %d, jointo id - %d)\n", kthread_id(), ktid); //, mykthread is holding? %s\n", holding(&mykthread()->lock) ? "yes" : "no");
+  printdebug("kthread_join().\n");
   // struct kthread *mythread = mykthread();
   struct kthread *kt;
   struct kthread *join_to;
@@ -260,6 +251,7 @@ int kthread_join(int ktid, int *status){
     if(kt->ktid == ktid){
       join_to = kt;
       found = 1;
+      printdebug("kthread_join(). calling thread ktid: %d state - %s, jointo ktid - %d state - %s\n", kthread_id(), ktStateToString(mykthread()->state), ktid, ktStateToString(kt->state));
     }
     else if (!holdingkth)
       release(&kt->lock);
