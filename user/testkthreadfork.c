@@ -25,21 +25,16 @@ exit(1);
 void* thread(){
     int status;
     int pid;
-    printf("hi\n");
     if((pid = fork()) ==0){
-        printf("hi2\n");
         fprintf(2,"child's PID: %d\n",getpid());
         chld();
     }else{
-        printf("hi3\n");
         int wait_val;
         if((wait_val = wait(&status)) != -1 && status != 1){
                 printf("fork status %d \n\twait_val : %d\n", status , wait_val); 
-                printf("hi4\n");
                 fprintf(2,"[ERROR] child exited abnormally\n");   
                 kthread_exit(-1);         
         }
-        printf("hi5\n");
         kthread_exit(0);
     }
     return 0;

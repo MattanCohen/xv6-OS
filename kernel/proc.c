@@ -325,10 +325,8 @@ void copy_kthread_for_fork(struct kthread* out_kt, struct kthread* kt_in){
   out_kt->chan = kt_in->chan;
   out_kt->xstate = kt_in->xstate;
   out_kt->ktid = kt_in->ktid;
-  
-  
-  release(&out_kt->lock);
-  release(&kt_in->lock);
+  *(out_kt->trapframe) = *(kt_in->trapframe);
+
 }
 
 
@@ -358,8 +356,8 @@ fork(void)
   np->state = PUSED;
   np->sz = p->sz;
   
-  // copy saved user registers.
-  *(np->base_trapframes) = *(p->base_trapframes);
+  // // copy saved user registers.
+  // *(np->base_trapframes) = *(p->base_trapframes);
 
   
   
@@ -387,41 +385,35 @@ fork(void)
   // copy threads from one another
   acquire(&np->lock);
   struct kthread* kt;
-  struct kthread* nkt;
-  for (kt = p->kthread, nkt = np->kthread; kt < &p->kthread[NKT] && nkt < &np->kthread[NKT]; kt++, nkt++)
-  {
-    acquire(&kt->lock);
-    if (nkt->state == UNUSED){
-      nkt = allockthread(np);
+  // struct kthread* nkt;
+  for (int i =0 ; i < NKT ; i++){
+  // for (kt = p->kthread, nkt = np->kthread; kt < &p->kthread[NKT] && nkt < &np->kthread[NKT]; kt++, nkt++)
+  // {
+    
+    acquire(&p->kthread[i].lock);
+    if(p->kthread[i].state != UNUSED){
+      // the first thread is allocated in allocproc alloc only from the second one
+      if (np->kthread[i].state == UNUSED){
+        if (&np->kthread[i] == (kt = allockthread(np))) release(&np->kthread[i].lock);
+        else {release(&kt->lock); printf("shouldnt get here\n");}
+      }
+      copy_kthread_for_fork(&np->kthread[i], &p->kthread[i]);
     }
-    else
-      acquire(&nkt->lock);
-    copy_kthread_for_fork(nkt, kt);
-
-    counter(1);
-    acquire(&nkt->lock);
-    counter(0);
-
-
-    if (nkt->state == RUNNING){
-    counter(1);
-      nkt->state = RUNNABLE;
-      // Cause fork to return 0 in the child.
-    counter(0);
-      // if (!nkt->trapframe) {
-      //   printf("nkt trapfram == 0 \n");
-      // }
-      // if (nkt->trapframe->ra) printf(" nkt trapframe is %d\n", nkt->trapframe->ra);
-      
-      nkt->trapframe->a0 = 0;
-    counter(0);
-    }
-
-    counter(0);
-    release(&nkt->lock);
-    counter(0);
+    release(&p->kthread[i].lock);
   }
   release(&np->lock);
+  
+  for(struct kthread * t = np->kthread ; t < &np->kthread[NKT] ; t++){
+    acquire(&t->lock);
+    if(t->state == RUNNING){
+      t->state = RUNNABLE;
+      t->trapframe->a0 = 0;
+      release(&t->lock);
+      break;
+    }
+    release(&t->lock);
+  }
+
   return pid;
 }
 
