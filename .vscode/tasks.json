@@ -1,41 +1,105 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Build-xv6",
-			"type": "shell",
-			"command": "make",
-			// "args": ["${relativeFile}"],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"problemMatcher": [
-				"$gcc"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-		},
-		{
-			"label": "run-gdb-backend-xv6",
-			"type": "shell",
-			"command": "make",
-			"args": ["qemu-gdb"],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-
-			"isBackground": true,
-			  "problemMatcher": {
-				"base": "$gcc",
-				"applyTo": "allDocuments",
-				"background": {
-					"activeOnStart": true,
-					"beginsPattern": ".",
-					"endsPattern": "Now run \\'gdb\\'"
-				},  
-			},
-		},
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Debug with GDB",
+            "command": "bash",
+            "args": [
+                "-c",
+                "make && make qemu-gdb"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true
+            },
+            "group": "build"
+            ,"detail": "make qemu-gdb"
+        },
+        {
+            "label": "Play",
+            "command": "bash",
+            "args": [
+                "-c",
+                "make start"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true
+            },
+            "group": "build",
+            "detail": "start the OS",
+            "problemMatcher": []
+        },
+        {
+            "label": "Wipe data",
+            "command": "bash",
+            "args": [
+                "-c",
+                "make delete"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "close": true
+            },
+            "group": "build"
+            ,"detail": "delete all data"
+        },
+        {
+            "label": "Restart",
+            "command": "bash",
+            "args": [
+                "-c",
+                "make start-temp"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true
+            },
+            "group": "build"
+            ,"detail": "delete previous data and start"
+        },
+        {
+            // guide online
+            "label": "Build-xv6",
+            "type": "shell",
+            "command": "make",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            // gdb by course faculity
+            "label": "run-gdb-backend-xv6",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "qemu-gdb"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "base": "$gcc",
+                "applyTo": "allDocuments",
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "Now run \\'gdb\\'"
+                }
+            }
+        }
+    ]
 }
