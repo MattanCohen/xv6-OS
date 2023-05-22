@@ -49,8 +49,12 @@ usertrap(void)
   
   // save user program counter.
   p->trapframe->epc = r_sepc();
-  
-  if(r_scause() == 8){
+  // ass 2
+  uint64 scause;
+  if((scause = r_scause()) == 13 || scause == 15){
+    printf("~~~~~~~ user trap scause == %d, r_stval = %b\n", scause, r_stval());
+  }
+  else if(scause == 8){
     // system call
 
     if(killed(p))
@@ -138,7 +142,11 @@ kerneltrap()
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
-  
+  // ass 2
+  if(scause == 13 || scause == 15){
+    printf("~~~~~~~ kernel trap scause == %d, r_stval = %b\n", scause, r_stval());
+  }
+  // ass 2
   if((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
   if(intr_get() != 0)
