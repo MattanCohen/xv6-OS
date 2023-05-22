@@ -29,6 +29,9 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
+// TODO !!
+void ChooseFileToSwap(){}
+
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -50,11 +53,64 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   // ass 2
-  uint64 scause;
-  if((scause = r_scause()) == 13 || scause == 15){
-    printf("~~~~~~~ user trap scause == %d, r_stval = %b\n", scause, r_stval());
+  uint64 scause = r_scause();
+  // Use r_scause() to determine the reason for the trap, which should be either 13 or 15 for a page fault
+  if( scause == 13 /*problem with read (loading from the page)*/ 
+      ||            /* or */
+      scause == 15  /*problem with write (saving to the page)*/ ){
+    
+    // Use r_stval() to determine the faulting address
+    uint64 faulting_virtual_address  = r_stval();
+    // Use this address to identify the page
+    uint64 faulting_physical_address = PTE2PA(faulting_virtual_address);
+    // Check its PTE to determine if this page has been swapped out or if this is just a plain old segmentation fault
+    int page_swapped_out = faulting_virtual_address & PTE_PG; 
+    // TODO : If the page resides in the swap file
+    int page_resides_on_swap_file = 0;
+    // TODO : Don’t forget to check if the current process is already using MAX_PSYC_PAGE
+    int using_too_many_pages = 0;
+    /* TODO : If so, another page should be swapped out. The decision as to which page should
+      be selected for swapping out is the subject of Task 3. For now, you can select
+      a relevant page as you see fit.*/
+    if (using_too_many_pages){
+      ChooseFileToSwap();
+    }
+
+    // if page is not swapped out, it's just a segmantaion fault.
+    if (page_swapped_out && page_resides_on_swap_file){
+      // allocate new physical page
+      struct file* new_page = (struct file*) kalloc();
+      // copy its data from the file
+      // TODO
+      // // map page back into page table 
+      // TODO
+    }
+    /*
+        After returning from the trap frame to
+        user space, the process retries executing the faulting instruction and should
+        not generate a page fault if your handling of the page fault was correct
+    */
+
+
+
+   /*
+   NOA
+   
+   
+   
+      // copy its data from the file
+      readfromswapfile(myproc(), new_page, myproc .swapfile.offset , PGSIZE) 
+      // // map page back into page table 
+      // myproc.pgtable */
+    
+    // printf("\n");
+    // printf("~~~~~~~ user trap:\n");
+    // printf("~~~~~~~\t scause: %d\n", scause);
+    // printf("~~~~~~~\t faulting phyiscal address: %p\n", faulting_physical_address);
+    // printf("~~~~~~~\t faulting virtual address: %p\n", faulting_virtual_address);
+    // printf("~~~~~~~\t is virtual address swapped out: %s\n", page_swapped_out ? "yes"  : "no");
   }
-  else if(scause == 8){
+  if(scause == 8){
     // system call
 
     if(killed(p))
