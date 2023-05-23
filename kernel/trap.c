@@ -62,7 +62,7 @@ usertrap(void)
     // Use r_stval() to determine the faulting address
     uint64 faulting_virtual_address  = r_stval();
     // Use this address to identify the page
-    uint64 faulting_physical_address = PTE2PA(faulting_virtual_address);
+//    uint64 faulting_physical_address = PTE2PA(faulting_virtual_address);
     // Check its PTE to determine if this page has been swapped out or if this is just a plain old segmentation fault
     int page_swapped_out = faulting_virtual_address & PTE_PG; 
     // TODO : If the page resides in the swap file
@@ -79,7 +79,7 @@ usertrap(void)
     // if page is not swapped out, it's just a segmantaion fault.
     if (page_swapped_out && page_resides_on_swap_file){
       // allocate new physical page
-      struct file* new_page = (struct file*) kalloc();
+      // TODO
       // copy its data from the file
       // TODO
       // // map page back into page table 
@@ -94,6 +94,11 @@ usertrap(void)
 
 
    /*
+    MATTAN
+
+      // struct file* new_page = (struct file*) kalloc();
+
+
    NOA
    
    
