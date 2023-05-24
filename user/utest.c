@@ -142,18 +142,18 @@ main(int argc, char *argv[])
 
 
   // supposed results with normal malloc
-  if (argc > 1 && strcmp(argv[1], "ustack") == 0){
+  if (argc > 1 && strcmp(argv[1], "normal") == 0){
     if (argc > 2 && strcmp(argv[2], "crash") == 0)
-      crash_malloc(1);
+      crash_malloc(0);
     else
-      test_malloc(1);
+      test_malloc(0);
   }
   // results with ustack malloc
   else{
     if (argc > 1 && strcmp(argv[1], "crash") == 0)
-      crash_malloc(0);
+      crash_malloc(1);
     else
-      test_malloc(0);
+      test_malloc(1);
   }
 
   if (argc > 3){

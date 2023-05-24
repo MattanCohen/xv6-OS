@@ -1,3 +1,6 @@
+#define MAX_PYSC_PAGES 16
+#define MAX_TOTAL_PAGES 32
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -81,6 +84,15 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct pagedata
+{
+    char* name; // for debugging
+    pte_t pages[MAX_TOTAL_PAGES];
+    int maxSize;
+    int size;
+};
+typedef struct pagedata pagedata;
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -106,4 +118,6 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   struct file *swapFile;
+  pagedata userPages;
+  pagedata swappedPages;
 };

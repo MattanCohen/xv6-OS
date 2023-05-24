@@ -15,10 +15,10 @@ ustack_malloc (uint len){
     if (len > MAXTOYLEN || len == 0) return (void*)-1; // len more than allowed
 
     // create new toy
-    char* toySbrk = sbrk(len * sizeof(union node));
+    char* toySbrk = sbrk(sizeof(union node));
     if (toySbrk == (char*)-1) return (void*)-1;
-    toy newToy = (toy)toySbrk;
     
+    toy newToy = (toy)toySbrk; 
     // assign new toy size
     newToy->size = len;
 
@@ -26,12 +26,14 @@ ustack_malloc (uint len){
     if (startToy == 0){
         newToy->prev = 0;
         startToy = newToy;
-        lastToy = startToy;
+        lastToy = newToy;
     }
     else{
         newToy->prev = lastToy;
         lastToy = newToy;
     }
+    
+    // printf("created new toy so now last's len is: %d while newToys size is %d although len=%d\n", lastToy->size, newToy->size, len);
     return (void*)(newToy);
 }
 

@@ -244,6 +244,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
       uvmdealloc(pagetable, a, oldsz);
       return 0;
     }
+    AddPage(myproc(), (pte_t)mem);    
   }
   return newsz;
 }
@@ -257,12 +258,12 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
   if(newsz >= oldsz)
     return oldsz;
-
   if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
     int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
     uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
   }
-
+  pte_t* page = GetPageToRemove();
+  RemovePage(myproc(), *page);    
   return newsz;
 }
 
@@ -303,7 +304,7 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 // returns 0 on success, -1 on failure.
 // frees any allocated pages on failure.
 int
-uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
+uvmcopy(struct proc* p, pagetable_t old, pagetable_t new, uint64 sz)
 {
   pte_t *pte;
   uint64 pa, i;
@@ -316,9 +317,12 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
+    if (i > 2)
+      AddPage(p, (pte_t)mem);    
     memmove(mem, (char*)pa, PGSIZE);
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
@@ -335,13 +339,13 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 // mark a PTE invalid for user access.
 // used by exec for the user stack guard page.
 void
-uvmclear(pagetable_t pagetable, uint64 va)
+uvmclear(struct proc* p,pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
-  
   pte = walk(pagetable, va, 0);
   if(pte == 0)
     panic("uvmclear");
+  RemovePage(p, (pte_t)pte);
   *pte &= ~PTE_U;
 }
 

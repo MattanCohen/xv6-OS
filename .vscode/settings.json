@@ -6,6 +6,7 @@
         "defs.h": "c",
         "ustack.h": "c",
         "user.h": "c",
-        "spinlock.h": "c"
+        "spinlock.h": "c",
+        "proc.h": "c"
     },
 }

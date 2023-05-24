@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+int debug = 0;
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -43,6 +45,35 @@ proc_mapstacks(pagetable_t kpgtbl)
   }
 }
 
+void
+initswap(struct proc* p){
+  
+    // init user pages      
+    p->userPages.name = "user pages";
+    p->userPages.size = 0;
+    p->userPages.maxSize = MAX_PYSC_PAGES;
+    for (int i = 0; i < p->userPages.maxSize; i++)
+    {
+      p->userPages.pages[i] = 0;
+    }
+
+    // init swapped pages      
+    p->swappedPages.name = "swapped pages";
+    p->swappedPages.size = 0;
+    p->swappedPages.maxSize = MAX_TOTAL_PAGES - MAX_PYSC_PAGES;
+    for (int i = 0; i < p->swappedPages.maxSize; i++)
+    {
+      p->swappedPages.pages[i] = 0;
+    }
+
+    // if exists delete p swap file
+    int isHolding = holding(&p->lock);
+    if (isHolding) release(&p->lock);
+    removeSwapFile(p);
+    if (isHolding) acquire(&p->lock);
+    p->swapFile = 0;
+}
+
 // initialize the proc table.
 void
 procinit(void)
@@ -55,6 +86,8 @@ procinit(void)
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
+      
+
   }
 }
 
@@ -146,6 +179,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  initswap(p);
   return p;
 }
 
@@ -155,6 +189,7 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  printdebug(debug, "freeproc\n");
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -213,6 +248,7 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
+  initswap(myproc());
 }
 
 // a user program that calls exec("/init")
@@ -261,16 +297,24 @@ growproc(int n)
 {
   uint64 sz;
   struct proc *p = myproc();
-
   sz = p->sz;
   if(n > 0){
     if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
       return -1;
     }
+
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
+
+
+  // for (int i = 0; i < PGSIZE; i++)
+  // {
+  //   pte_t pte = p->pagetable[i];
+  //   if (pte & PTE_U) printf("*********************************************************page %d is userpage\n", i);
+  // }
+  
   return 0;
 }
 
@@ -289,7 +333,7 @@ fork(void)
   }
 
   // Copy user memory from parent to child.
-  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+  if(uvmcopy(np, p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;
@@ -321,6 +365,23 @@ fork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
+
+  if (!debug){
+    return pid;
+  }
+  // printf("~~~ fork():");
+  // printf("~~~\tprocess userpages:\n");
+  // PrintPageData(&p->userPages);
+  // printf("~~~\tprocess swapped pages:\n");
+  // PrintPageData(&p->swappedPages);
+
+  // printf("~~~~~~~~~~~~~~~~~\n");
+  // printf("~~~~~~~~~~~~~~~~~\n");
+  // printf("~~~\tchild userpages:\n");
+  // PrintPageData(&np->userPages);
+  // printf("~~~\tchild swapped pages:\n");
+  // PrintPageData(&np->swappedPages);
+
 
   return pid;
 }
@@ -681,3 +742,118 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+//------------------PAGE META DATA------------------
+
+void PrintPageData(pagedata* data){
+  printf("printing page data \"%s\": \n", data->name);
+  for (int i = 0; i < data->maxSize; i++)
+  {
+    printf("\tpage %d : %p\n", i, data->pages[i]);
+  }
+}
+
+int RemoveFromPageData(pagedata* data, pte_t page){
+  for (int i = 0; i < data->maxSize; i++)
+  {
+    if (data->pages[i] && data->pages[i] == page){
+      data->pages[i] = 0;
+      data->size--;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int AddToPageData(pagedata* data, pte_t page){
+  for (int i = 0; i < data->maxSize; i++)
+  {
+    if (!data->pages[i]){
+      data->pages[i] = page;
+      data->size++;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+void AddPage(struct proc* p,pte_t page){
+  pagedata* userPages = &p->userPages;
+  pagedata* swappedPages = &p->swappedPages;
+  int failed = 0;
+  if (userPages->size < userPages->maxSize){
+    failed = AddToPageData(userPages, page) || failed;
+  }
+  else if (swappedPages->size < swappedPages->maxSize){
+    if (swappedPages->size == 0){
+      createSwapFile(p);
+    }
+    failed = AddToPageData(swappedPages, page) || failed;
+  }
+  else{
+    if (debug){
+      PrintPageData(&p->userPages);
+      PrintPageData(&p->swappedPages);
+    }
+    panic("trying to add a page when more than the allowed number exists!\n");
+  }
+  printdebug(debug,"pid %d- proc.c::AddPage(%p) %s\n",p->pid, page,  failed ? "succeeded" : "failed");
+}
+
+void RemovePage(struct proc* p, pte_t page){
+  pagedata* userPages = &p->userPages;
+  pagedata* swappedPages = &p->swappedPages;
+  int failed = 0;
+
+  if (swappedPages->size >= 1){
+    failed = RemoveFromPageData(swappedPages, page) || failed;
+    if (swappedPages->size == 0){
+      removeSwapFile(p);
+    }
+  }
+  else if (userPages->size == 0){
+    if (debug){
+      PrintPageData(&p->userPages);
+      PrintPageData(&p->swappedPages);
+    }
+    panic("trying to remove page but no pages allocated");
+  }
+  else{
+    failed = RemoveFromPageData(userPages, page) || failed;
+  }
+  printdebug(debug,"pid %d- proc.c::RemovePage(%p) %s\n",p->pid, page,  failed ? "succeeded" : "failed");
+}
+
+
+pte_t* GetPageToRemove(){
+  pagedata* userPages = &myproc()->userPages;
+  pagedata* swappedPages = &myproc()->swappedPages;
+  printdebug(debug,"getting page to remove\n");
+
+  for (int i = swappedPages->maxSize; i > 0; i--)
+  {
+    if (swappedPages->pages[i] != 0) return &swappedPages->pages[i];
+  }
+  
+  for (int i = userPages->maxSize; i > 0; i--)
+  {
+    if (userPages->pages[i] != 0) return &swappedPages->pages[i];
+  }
+  PrintPageData(&myproc()->swappedPages);
+  PrintPageData(&myproc()->userPages);
+  return 0;
+}
+
+int IsPageInPageData(pte_t page, pagedata* data){
+  for (int i = 0; i < data->size; i++)
+  {
+    if (page == data->pages[i]){
+      printdebug(debug, "page %p is in page data %s\n", page, data->name);
+      return 1;
+    }
+  }
+  
+  return 0;
+}
+//------------------PAGE META DATA------------------
