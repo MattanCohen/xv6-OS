@@ -72,7 +72,7 @@ usertrap(void)
        ReplacePage(p, faulting_virtual_address);
     }
     else{
-      PrintPagingError(p, "can't reach non existent pages!");
+      PrintPagingError(p, "page fault");
     }
     /*
         After returning from the trap frame to
