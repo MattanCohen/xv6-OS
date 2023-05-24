@@ -29,7 +29,6 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -52,12 +51,11 @@ usertrap(void)
   p->trapframe->epc = r_sepc();
   // ass 2
   uint64 scause = r_scause();
-  ReplacePage(p, (pte_t)0);
   // Use r_scause() to determine the reason for the trap, which should be either 13 or 15 for a page fault
   if( scause == 13 /*problem with read (loading from the page)*/ 
       ||            /* or */
       scause == 15  /*problem with write (saving to the page)*/ ){
-    
+
     // Use r_stval() to determine the faulting address
     // Use this address to identify the page
     pte_t faulting_virtual_address  = r_stval();
@@ -72,6 +70,9 @@ usertrap(void)
       a relevant page as you see fit.*/
     if (page_swapped_out && page_resides_on_swap_file && using_too_many_pages){
        ReplacePage(p, faulting_virtual_address);
+    }
+    else{
+      PrintPagingError(p, "can't reach non existent pages!");
     }
     /*
         After returning from the trap frame to

@@ -113,12 +113,16 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+int SwapAlgoIsInit(char*);
+int SwapAlgoIs(char*);
+void PrintPagingError(struct proc*, char*);
 pte_t* GetPageToRemove(void);
 void RemovePage(struct proc* p, pte_t page);
 void AddPage(struct proc* p, pte_t page);
 void PrintPageData(struct pagedata*);
 int IsPageInPageData(pte_t page, struct pagedata*);
 // paging algorithms
+void AppendCounters(struct proc* p);
 void ReplacePage(struct proc* p, pte_t page);
 pte_t GetPageNFUA(struct proc* p, pte_t page);//    not frequently used + aging
 pte_t GetPageLAPA(struct proc* p, pte_t page);//    least accessed page + aging

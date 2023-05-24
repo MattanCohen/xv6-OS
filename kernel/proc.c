@@ -7,6 +7,8 @@
 #include "defs.h"
 
 int debug = 0;
+char* allowed_swap_algos[4] = {"SCFIFO", "NFUA", "LAPA", "NONE"};
+int swap_algo_is_allowed = 0;
 
 struct cpu cpus[NCPU];
 
@@ -69,7 +71,10 @@ initswap(struct proc* p){
     for (int i = 0; i < MAX_TOTAL_PAGES; i++)
     {
       p->swappedPages.pagesCounters[i] = 0;
+      p->swappedPages.pagesTriesCounters[i] = 0;
+      
       p->userPages.pagesCounters[i] = 0;
+      p->userPages.pagesTriesCounters[i] = 0;
     }
     
 
@@ -86,7 +91,20 @@ void
 procinit(void)
 {
   struct proc *p;
-  // printf("SWAP_ALGO: %s\n", SWAP_ALGO);
+  for (int n = 0; n < 4; n++)
+  {
+    char* i = allowed_swap_algos[n];
+    if (!SwapAlgoIsInit(i)) continue;
+
+    swap_algo_is_allowed = 1;
+    break;
+  }
+
+  printf("Swapping algorithm: " );
+  if (swap_algo_is_allowed) printf("%s\n", SWAP_ALGO);
+  else printf("%s, but isn't allowed so changing to: %s\n", SWAP_ALGO, allowed_swap_algos[0]);
+
+
 
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
@@ -316,13 +334,6 @@ growproc(int n)
   }
   p->sz = sz;
 
-
-  // for (int i = 0; i < PGSIZE; i++)
-  // {
-  //   pte_t pte = p->pagetable[i];
-  //   if (pte & PTE_U) printf("*********************************************************page %d is userpage\n", i);
-  // }
-  
   return 0;
 }
 
@@ -377,18 +388,6 @@ fork(void)
   if (!debug){
     return pid;
   }
-  // printf("~~~ fork():");
-  // printf("~~~\tprocess userpages:\n");
-  // PrintPageData(&p->userPages);
-  // printf("~~~\tprocess swapped pages:\n");
-  // PrintPageData(&p->swappedPages);
-
-  // printf("~~~~~~~~~~~~~~~~~\n");
-  // printf("~~~~~~~~~~~~~~~~~\n");
-  // printf("~~~\tchild userpages:\n");
-  // PrintPageData(&np->userPages);
-  // printf("~~~\tchild swapped pages:\n");
-  // PrintPageData(&np->swappedPages);
 
 
   return pid;
@@ -527,6 +526,7 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        AppendCounters(p);
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -754,11 +754,23 @@ procdump(void)
 
 //------------------PAGE META DATA------------------
 
+void PrintPagingError(struct proc* p, char* msg){
+  printf("!!!!!!!!!!! PAGING ERROR - ", p->pid);
+  printf(msg);
+  printf("\n");
+  if (debug){
+    printf("\nprocess %d data pages:\n", p->pid);
+    PrintPageData(&p->userPages);
+    PrintPageData(&p->swappedPages);
+  }
+  exit(-9);
+}
+
 void PrintPageData(pagedata* data){
   printf("printing page data \"%s\": \n", data->name);
   for (int i = 0; i < data->maxSize; i++)
   {
-    printf("\tpage %d : %p\n", i, data->pages[i]);
+    printf("\tpage %d : %p counter = %d\n", i, data->pages[i], data->pagesCounters[i]);
   }
 }
 
@@ -768,6 +780,7 @@ int RemoveFromPageData(pagedata* data, pte_t page){
     if (data->pages[i] && data->pages[i] == page){
       data->pages[i] = 0;
       data->pagesCounters[i] = 0;
+      data->pagesTriesCounters[i] = 0;
       data->size--;
       return 1;
     }
@@ -781,6 +794,7 @@ int AddToPageData(pagedata* data, pte_t page){
     if (!data->pages[i]){
       data->pages[i] = page;
       data->pagesCounters[i] = 0;
+      data->pagesTriesCounters[i] = 0;
       data->size++;
       return 1;
     }
@@ -805,8 +819,9 @@ void AddPage(struct proc* p,pte_t page){
     if (debug){
       PrintPageData(&p->userPages);
       PrintPageData(&p->swappedPages);
+    
     }
-    panic("trying to add a page when more than the allowed number exists!\n");
+    PrintPagingError(p, "trying to add a page when more than the allowed number exists!\n");
   }
   printdebug(debug,"pid %d- proc.c::AddPage(%p) %s\n",p->pid, page,  failed ? "succeeded" : "failed");
 }
@@ -827,13 +842,15 @@ void RemovePage(struct proc* p, pte_t page){
       PrintPageData(&p->userPages);
       PrintPageData(&p->swappedPages);
     }
-    panic("trying to remove page but no pages allocated");
+    
+    PrintPagingError(p, "trying to remove page but no pages allocated");
   }
   else{
     failed = RemoveFromPageData(userPages, page) || failed;
   }
   printdebug(debug,"pid %d- proc.c::RemovePage(%p) %s\n",p->pid, page,  failed ? "succeeded" : "failed");
 }
+
 
 
 pte_t* GetPageToRemove(){
@@ -867,9 +884,25 @@ int IsPageInPageData(pte_t page, pagedata* data){
   return 0;
 }
 
+void AppendCounters(struct proc* p){
+  for (int i = 0; i < p->swappedPages.maxSize; i++)
+  {
+    if (p->swappedPages.pages[i] & PTE_U){
+      p->swappedPages.pagesCounters[i]++;
+      p->swappedPages.pages[i] = p->swappedPages.pages[i] - PTE_U;
+    }
+  }
+  for (int i = 0; i < p->userPages.maxSize; i++)
+  {
+    if (p->userPages.pages[i] & PTE_U){
+      p->userPages.pagesCounters[i]++;
+      p->userPages.pages[i] = p->userPages.pages[i] - PTE_U;
+    }
+  }
+}
+
 //    not frequently used + aging
 pte_t GetPageNFUA(struct proc* p, pte_t page){
-  printdebug (debug, "NFUA");
   int minCounter = 2147000000;
   pte_t pageToMove = (pte_t)0;
   for (int i = 0; i < p->userPages.maxSize; i++)
@@ -881,7 +914,6 @@ pte_t GetPageNFUA(struct proc* p, pte_t page){
 }
 //    least accessed page + aging
 pte_t GetPageLAPA(struct proc* p, pte_t page){
-  printdebug (debug, "LAPA");
   int minCounter = 2147000000;
   pte_t pageToMove = (pte_t)0;
   for (int i = 0; i < p->userPages.maxSize; i++)
@@ -893,14 +925,14 @@ pte_t GetPageLAPA(struct proc* p, pte_t page){
 }
 //  second chance FIFO
 pte_t GetPageSCFIFO(struct proc* p, pte_t page){
-  printf("SCFIFO");
   int minCounter = 2147000000;
   pte_t pageToMove = (pte_t)0;
   for (int i = 0; i < p->userPages.maxSize; i++)
     if (p->userPages.pagesCounters[i] < minCounter){
       // second chance
-      if (p->userPages.pagesCounters[i] & PTE_A){
-        p->userPages.pagesCounters[i] & (!PTE_A);
+      if (p->userPages.pagesTriesCounters[i] == 0 && p->userPages.pagesCounters[i] & PTE_U){
+        p->userPages.pagesCounters[i] = p->userPages.pagesCounters[i] - PTE_A;
+        p->userPages.pagesTriesCounters[i]++;
         continue;
       }
       pageToMove = p->userPages.pages[i];
@@ -910,19 +942,23 @@ pte_t GetPageSCFIFO(struct proc* p, pte_t page){
 }
 //    no paging
 pte_t GetPageNONE(struct proc* p, pte_t page){
-  printf("NONE");
   return page;
 }
 
+int SwapAlgoIsInit(char* s){return strncmp((char*)SWAP_ALGO, s, sizeof(s)) == 0;}
 
-int SwapAlgoIs(char* s){return strncmp((char*)SWAP_ALGO, s, sizeof(s)) == 0;}
-// TODO !!
+int SwapAlgoIs(char* s){
+  if (!swap_algo_is_allowed) return strncmp(allowed_swap_algos[0], s, sizeof(s)) == 0;
+  return strncmp((char*)SWAP_ALGO, s, sizeof(s)) == 0;
+  }
+
 void ReplacePage(struct proc* p, pte_t page){
-  pte_t pageToMove;
+  pte_t pageToMove = (pte_t)0;
   if (SwapAlgoIs("NFUA")) pageToMove = GetPageNFUA(p, page);
   else if (SwapAlgoIs("LAPA")) pageToMove = GetPageLAPA(p, page);
   else if (SwapAlgoIs("SCFIFO")) pageToMove = GetPageSCFIFO(p, page);
   else if (SwapAlgoIs("NONE")) return;
+  
 
   RemoveFromPageData(&p->swappedPages, page);
   RemoveFromPageData(&p->userPages, pageToMove);

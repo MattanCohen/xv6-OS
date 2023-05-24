@@ -778,7 +778,6 @@ removeSwapFile(struct proc* p)
 
   end_op();
 
-  printf("removed swap file\n");
   return 0;
 
   bad:
@@ -812,7 +811,6 @@ createSwapFile(struct proc* p)
   p->swapFile->writable = O_RDWR;
     end_op();
 
-  printf("created swap file\n");
     return 0;
 }
 

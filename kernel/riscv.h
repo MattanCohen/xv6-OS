@@ -342,7 +342,7 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PTE_R   (1L << 1)
 #define PTE_W   (1L << 2)
 #define PTE_X   (1L << 3)
-#define PTE_U   (1L << 4) // user can access
+#define PTE_U   (1L << 4) // pte was used
 #define PTE_A   (1L << 5) // user can access
 #define PTE_PG  (1L << 9) // swapped out    : ass 3
 
