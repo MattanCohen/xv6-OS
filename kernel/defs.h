@@ -118,6 +118,13 @@ void RemovePage(struct proc* p, pte_t page);
 void AddPage(struct proc* p, pte_t page);
 void PrintPageData(struct pagedata*);
 int IsPageInPageData(pte_t page, struct pagedata*);
+// paging algorithms
+void ReplacePage(struct proc* p, pte_t page);
+pte_t GetPageNFUA(struct proc* p, pte_t page);//    not frequently used + aging
+pte_t GetPageLAPA(struct proc* p, pte_t page);//    least accessed page + aging
+pte_t GetPageSCFIFO(struct proc* p, pte_t page);//  second chance FIFO
+pte_t GetPageNONE(struct proc* p, pte_t page);//    no paging
+
 
 // swtch.S
 void            swtch(struct context*, struct context*);

@@ -88,6 +88,7 @@ struct pagedata
 {
     char* name; // for debugging
     pte_t pages[MAX_TOTAL_PAGES];
+    int pagesCounters[MAX_TOTAL_PAGES];
     int maxSize;
     int size;
 };

@@ -66,6 +66,13 @@ initswap(struct proc* p){
       p->swappedPages.pages[i] = 0;
     }
 
+    for (int i = 0; i < MAX_TOTAL_PAGES; i++)
+    {
+      p->swappedPages.pagesCounters[i] = 0;
+      p->userPages.pagesCounters[i] = 0;
+    }
+    
+
     // if exists delete p swap file
     int isHolding = holding(&p->lock);
     if (isHolding) release(&p->lock);
@@ -79,7 +86,8 @@ void
 procinit(void)
 {
   struct proc *p;
-  
+  // printf("SWAP_ALGO: %s\n", SWAP_ALGO);
+
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
@@ -759,6 +767,7 @@ int RemoveFromPageData(pagedata* data, pte_t page){
   {
     if (data->pages[i] && data->pages[i] == page){
       data->pages[i] = 0;
+      data->pagesCounters[i] = 0;
       data->size--;
       return 1;
     }
@@ -771,6 +780,7 @@ int AddToPageData(pagedata* data, pte_t page){
   {
     if (!data->pages[i]){
       data->pages[i] = page;
+      data->pagesCounters[i] = 0;
       data->size++;
       return 1;
     }
@@ -855,5 +865,68 @@ int IsPageInPageData(pte_t page, pagedata* data){
   }
   
   return 0;
+}
+
+//    not frequently used + aging
+pte_t GetPageNFUA(struct proc* p, pte_t page){
+  printdebug (debug, "NFUA");
+  int minCounter = 2147000000;
+  pte_t pageToMove = (pte_t)0;
+  for (int i = 0; i < p->userPages.maxSize; i++)
+    if (p->userPages.pagesCounters[i] < minCounter){
+      pageToMove = p->userPages.pages[i];
+      minCounter = p->userPages.pagesCounters[i];
+    }
+  return pageToMove;
+}
+//    least accessed page + aging
+pte_t GetPageLAPA(struct proc* p, pte_t page){
+  printdebug (debug, "LAPA");
+  int minCounter = 2147000000;
+  pte_t pageToMove = (pte_t)0;
+  for (int i = 0; i < p->userPages.maxSize; i++)
+    if (p->userPages.pagesCounters[i] < minCounter){
+      pageToMove = p->userPages.pages[i];
+      minCounter = p->userPages.pagesCounters[i];
+    }
+  return pageToMove;
+}
+//  second chance FIFO
+pte_t GetPageSCFIFO(struct proc* p, pte_t page){
+  printf("SCFIFO");
+  int minCounter = 2147000000;
+  pte_t pageToMove = (pte_t)0;
+  for (int i = 0; i < p->userPages.maxSize; i++)
+    if (p->userPages.pagesCounters[i] < minCounter){
+      // second chance
+      if (p->userPages.pagesCounters[i] & PTE_A){
+        p->userPages.pagesCounters[i] & (!PTE_A);
+        continue;
+      }
+      pageToMove = p->userPages.pages[i];
+      minCounter = p->userPages.pagesCounters[i];
+    }
+  return pageToMove;
+}
+//    no paging
+pte_t GetPageNONE(struct proc* p, pte_t page){
+  printf("NONE");
+  return page;
+}
+
+
+int SwapAlgoIs(char* s){return strncmp((char*)SWAP_ALGO, s, sizeof(s)) == 0;}
+// TODO !!
+void ReplacePage(struct proc* p, pte_t page){
+  pte_t pageToMove;
+  if (SwapAlgoIs("NFUA")) pageToMove = GetPageNFUA(p, page);
+  else if (SwapAlgoIs("LAPA")) pageToMove = GetPageLAPA(p, page);
+  else if (SwapAlgoIs("SCFIFO")) pageToMove = GetPageSCFIFO(p, page);
+  else if (SwapAlgoIs("NONE")) return;
+
+  RemoveFromPageData(&p->swappedPages, page);
+  RemoveFromPageData(&p->userPages, pageToMove);
+  AddToPageData(&p->userPages, page);
+  AddToPageData(&p->swappedPages, pageToMove);
 }
 //------------------PAGE META DATA------------------

@@ -29,10 +29,6 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
-// TODO !!
-void ReplacePage(struct proc* p, pte_t page){
-  
-}
 
 //
 // handle an interrupt, exception, or system call from user space.
@@ -56,6 +52,7 @@ usertrap(void)
   p->trapframe->epc = r_sepc();
   // ass 2
   uint64 scause = r_scause();
+  ReplacePage(p, (pte_t)0);
   // Use r_scause() to determine the reason for the trap, which should be either 13 or 15 for a page fault
   if( scause == 13 /*problem with read (loading from the page)*/ 
       ||            /* or */
