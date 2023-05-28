@@ -345,6 +345,9 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
+  printdebug(debug, "proc.c::%s()\n",__func__ );
+  // PrintPageData(&myproc()->userPages);
+  // PrintPageData(&myproc()->swappedPages);
 
   // Allocate process.
   if((np = allocproc()) == 0){
@@ -806,10 +809,13 @@ void AddPage(struct proc* p,pte_t page){
   pagedata* userPages = &p->userPages;
   pagedata* swappedPages = &p->swappedPages;
   int failed = 0;
+  int at = -1;
   if (userPages->size < userPages->maxSize){
+    at = userPages->size;
     failed = AddToPageData(userPages, page) || failed;
   }
   else if (swappedPages->size < swappedPages->maxSize){
+    at = userPages->size;
     if (swappedPages->size == 0){
       printdebug(debug, "creating swapfile\n");
       createSwapFile(p);
@@ -818,23 +824,26 @@ void AddPage(struct proc* p,pte_t page){
     if(!failed) writeToSwapFile(p, (char*)page, p->swapFile, PGSIZE);
   }
   else{
-    if (debug){
-      PrintPageData(&p->userPages);
-      PrintPageData(&p->swappedPages);
-    
-    }
-    PrintPagingError(p, "trying to add a page when more than the allowed number exists!\n");
+    PrintPagingError(p, "trying to add a page when more than the allowed number exists!");
   }
-  printdebug(debug,"pid %d- proc.c::AddPage(%p) %s\n",p->pid, page,  failed ? "succeeded" : "failed");
+  printdebug(debug,"pid %d- proc.c::AddPage(%p) adding page #%d %s\n",p->pid, page, at ,failed ? "succeeded" : "failed");
+  if (!failed){
+    PrintPageData(&p->userPages);
+    PrintPageData(&p->swappedPages);
+  }
 }
 
 void RemovePage(struct proc* p, pte_t page){
   pagedata* userPages = &p->userPages;
   pagedata* swappedPages = &p->swappedPages;
   int failed = 0;
+  int at = -1;
+
+  if (!page) PrintPagingError(p, "RemovePage recieved empty page");
 
   if (swappedPages->size >= 1){
     failed = RemoveFromPageData(swappedPages, page) || failed;
+    at = swappedPages->size;
     if(!failed) readFromSwapFile(p, (char*)page, p->swapFile, PGSIZE);
     if (swappedPages->size == 0){
       printdebug(debug, "removing swapfile\n");
@@ -842,17 +851,13 @@ void RemovePage(struct proc* p, pte_t page){
     }
   }
   else if (userPages->size == 0){
-    if (debug){
-      PrintPageData(&p->userPages);
-      PrintPageData(&p->swappedPages);
-    }
-    
     PrintPagingError(p, "trying to remove page but no pages allocated");
   }
   else{
     failed = RemoveFromPageData(userPages, page) || failed;
+    at = userPages->size;
   }
-  printdebug(debug,"pid %d- proc.c::RemovePage(%p) %s\n",p->pid, page,  failed ? "succeeded" : "failed");
+  printdebug(debug,"pid %d- proc.c::RemovePage(%p) removing page #%d %s\n",p->pid, page, at,  failed ? "succeeded" : "failed");
 }
 
 
@@ -862,17 +867,16 @@ pte_t* GetPageToRemove(){
   pagedata* swappedPages = &myproc()->swappedPages;
   printdebug(debug,"getting page to remove\n");
 
-  for (int i = swappedPages->maxSize; i > 0; i--)
+  for (int i = swappedPages->maxSize - 1; i >= 0; i--)
   {
     if (swappedPages->pages[i] != 0) return &swappedPages->pages[i];
   }
   
-  for (int i = userPages->maxSize; i > 0; i--)
+  for (int i = userPages->maxSize - 1; i >= 0; i--)
   {
-    if (userPages->pages[i] != 0) return &swappedPages->pages[i];
+    if (userPages->pages[i] != 0) return &userPages->pages[i];
   }
-  PrintPageData(&myproc()->swappedPages);
-  PrintPageData(&myproc()->userPages);
+  PrintPagingError(myproc(), "proc.c::GetPageToRemove(void) Cant get page to remove");
   return 0;
 }
 

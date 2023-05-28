@@ -321,9 +321,10 @@ uvmcopy(struct proc* p, pagetable_t old, pagetable_t new, uint64 sz)
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
-    if (i > 2)
-      AddPage(p, (pte_t)mem);    
+    // if (i > 2)
+        // printf("&&&&&&&&&&&&&&&&& i = %d\n",i/PGSIZE);
     memmove(mem, (char*)pa, PGSIZE);
+    // AddPage(p, (pte_t)mem);
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
       goto err;

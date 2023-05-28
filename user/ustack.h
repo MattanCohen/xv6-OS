@@ -1,10 +1,18 @@
 #include "kernel/types.h"
-#include "kernel/riscv.h"
-#include "user.h"
-
-#define MAXTOYLEN 512
 
 
-void*   ustack_malloc (uint len) ;
-int     ustack_free(void);
+typedef long Align;
 
+union header {
+  struct {
+    union header *ptr;
+    uint size;
+  } s;
+  Align x;
+};
+
+typedef union header Toy;
+
+
+void * ustack_malloc(uint len);
+int ustack_free(void);

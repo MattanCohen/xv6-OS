@@ -1,54 +1,60 @@
-#include "ustack.h"
+#include "kernel/types.h"
+#include "user/ustack.h"
+#include "kernel/riscv.h"
+#include "user.h"
 
-union node
-{
-    union node* prev;
-    uint size;
-};
-typedef union node* toy;
 
-toy startToy;
-toy lastToy;
+static Toy toy;
+static Toy *end_toy;
 
-void*
-ustack_malloc (uint len){
-    if (len > MAXTOYLEN || len == 0) return (void*)-1; // len more than allowed
+void init_toys(){
+    toy.s.size = 0;
+    end_toy = &toy;
+}
+void realloc(char* t){
+    Toy* hp = (Toy*)t;
+    hp->s.ptr = end_toy;
+    hp->s.size = PGSIZE/sizeof(Toy);
+    end_toy = hp;
+}
 
-    // create new toy
-    char* toySbrk = sbrk(sizeof(union node));
-    if (toySbrk == (char*)-1) return (void*)-1;
+void * ustack_malloc(uint len) {
+    if(len > 512)
+        {return (void*)-1;}
+    uint nunits = (len + sizeof(Toy) - 1)/sizeof(Toy) + 1;
     
-    toy newToy = (toy)toySbrk; 
-    // assign new toy size
-    newToy->size = len;
+    if(end_toy == 0) init_toys();
+      
+    if (end_toy->s.size >= nunits){
+        uint remaining_size = end_toy->s.size - nunits;
+        end_toy->s.size = nunits;
+        end_toy = end_toy + end_toy->s.size;
+        end_toy->s.ptr = end_toy-nunits; 
+        end_toy->s.size = remaining_size;
+        return (void*)(end_toy->s.ptr+1);
+    }
+    else { // allocate new page and remalloc
+        char* new_toy;
+        if((new_toy = sbrk(PGSIZE)) == (char*)-1) return (void*)-1;
 
-    // if its the first toy
-    if (startToy == 0){
-        newToy->prev = 0;
-        startToy = newToy;
-        lastToy = newToy;
+        realloc(new_toy);
+        return ustack_malloc(len);
     }
-    else{
-        newToy->prev = lastToy;
-        lastToy = newToy;
-    }
-    
-    // printf("created new toy so now last's len is: %d while newToys size is %d although len=%d\n", lastToy->size, newToy->size, len);
-    return (void*)(newToy);
 }
 
 
-int     
-ustack_free(void){
-    if (lastToy == 0) return -1;
-    uint len = lastToy->size;
-    if (sbrk(-1 * len * sizeof(toy))==(char*)-1) return -1;
-
-    toy prevToy = lastToy;
-    lastToy = prevToy ? prevToy : 0;
-    if (prevToy){ // Tidy up
-        prevToy->prev = 0;
-        prevToy->size = 0;
+int ustack_free(void) {
+    if (end_toy == &toy) // no toys available
+        {return -1;}
+    Toy* prev_toy = end_toy->s.ptr;
+    uint nunits = prev_toy->s.size;
+    prev_toy->s.size += end_toy->s.size; 
+    end_toy->s.size = 0;     
+    end_toy = prev_toy;
+    
+    if(end_toy->s.size == PGSIZE/sizeof(Toy)) {
+        end_toy = end_toy->s.ptr;
+        sbrk(-PGSIZE); 
     }
-    return len;
+    return nunits*sizeof(Toy);
 }
