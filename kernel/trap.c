@@ -64,11 +64,11 @@ usertrap(void)
     // TODO : If the page resides in the swap file
     int page_resides_on_swap_file = IsPageInPageData(faulting_virtual_address, &p->swappedPages);
     // TODO : Don’t forget to check if the current process is already using MAX_PSYC_PAGE
-    int using_too_many_pages = p->userPages.size > MAX_PYSC_PAGES ;
+    int userpages_using_too_many_pages = p->userPages.size > p->userPages.maxSize;
     /* TODO : If so, another page should be swapped out. The decision as to which page should
       be selected for swapping out is the subject of Task 3. For now, you can select
       a relevant page as you see fit.*/
-    if (page_swapped_out && page_resides_on_swap_file && using_too_many_pages){
+    if (page_swapped_out && page_resides_on_swap_file && userpages_using_too_many_pages){
        ReplacePage(p, faulting_virtual_address);
     }
     else{
@@ -76,8 +76,9 @@ usertrap(void)
     }
     /*
         After returning from the trap frame to
-        user space, the process retries executing the faulting instruction and should
-        not generate a page fault if your handling of the page fault was correct
+        user space, the process retries executing the faulting instruction and
+        should not generate a page fault if your handling of the page fault was
+        correct
     */
   }
   else if(scause == 8){

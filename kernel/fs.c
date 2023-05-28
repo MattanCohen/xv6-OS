@@ -816,16 +816,18 @@ createSwapFile(struct proc* p)
 
 //return as sys_write (-1 when error)
 int
-writeToSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
+writeToSwapFile(struct proc * p, char* buffer, struct file* swapFile, uint size)
 {
+  uint placeOnFile = swapFile->off;
   p->swapFile->off = placeOnFile;
   return kfilewrite(p->swapFile, (uint64)buffer, size);
 }
 
 //return as sys_read (-1 when error)
 int
-readFromSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
+readFromSwapFile(struct proc * p, char* buffer,struct file* swapFile, uint size)
 {
+  uint placeOnFile = swapFile->off; 
   p->swapFile->off = placeOnFile;
   return kfileread(p->swapFile, (uint64)buffer,  size);
 }

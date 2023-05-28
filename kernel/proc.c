@@ -247,7 +247,7 @@ proc_pagetable(struct proc *p)
   // map the trampoline code (for system call return)
   // at the highest user virtual address.
   // only the supervisor uses it, on the way
-  // to/from user space, so not PTE_U.
+  // to/from user space, so not PTE_A.
   if(mappages(pagetable, TRAMPOLINE, PGSIZE,
               (uint64)trampoline, PTE_R | PTE_X) < 0){
     uvmfree(pagetable, 0);
@@ -811,9 +811,11 @@ void AddPage(struct proc* p,pte_t page){
   }
   else if (swappedPages->size < swappedPages->maxSize){
     if (swappedPages->size == 0){
+      printdebug(debug, "creating swapfile\n");
       createSwapFile(p);
     }
     failed = AddToPageData(swappedPages, page) || failed;
+    if(!failed) writeToSwapFile(p, (char*)page, p->swapFile, PGSIZE);
   }
   else{
     if (debug){
@@ -833,7 +835,9 @@ void RemovePage(struct proc* p, pte_t page){
 
   if (swappedPages->size >= 1){
     failed = RemoveFromPageData(swappedPages, page) || failed;
+    if(!failed) readFromSwapFile(p, (char*)page, p->swapFile, PGSIZE);
     if (swappedPages->size == 0){
+      printdebug(debug, "removing swapfile\n");
       removeSwapFile(p);
     }
   }
@@ -884,19 +888,25 @@ int IsPageInPageData(pte_t page, pagedata* data){
   return 0;
 }
 
+
 void AppendCounters(struct proc* p){
   for (int i = 0; i < p->swappedPages.maxSize; i++)
   {
-    if (p->swappedPages.pages[i] & PTE_U){
-      p->swappedPages.pagesCounters[i]++;
-      p->swappedPages.pages[i] = p->swappedPages.pages[i] - PTE_U;
+    if (p->swappedPages.pages[i] & PTE_A){
+      // p->swappedPages.pagesCounters[i]++;
+      p->swappedPages.pagesCounters[i] >>= 1;  // Shift right by one bit
+      p->swappedPages.pagesCounters[i] |= (1 << (sizeof(int) * 8 - 1));  // Set most significant bit to 1
+
+      p->swappedPages.pages[i] = p->swappedPages.pages[i] - PTE_A;
     }
   }
   for (int i = 0; i < p->userPages.maxSize; i++)
   {
-    if (p->userPages.pages[i] & PTE_U){
-      p->userPages.pagesCounters[i]++;
-      p->userPages.pages[i] = p->userPages.pages[i] - PTE_U;
+    if (p->userPages.pages[i] & PTE_A){
+      // p->userPages.pagesCounters[i]++;
+      p->swappedPages.pagesCounters[i] >>= 1;  // Shift right by one bit
+      p->swappedPages.pagesCounters[i] |= (1 << (sizeof(int) * 8 - 1));  // Set most significant bit to 1
+      p->userPages.pages[i] = p->userPages.pages[i] - PTE_A;
     }
   }
 }
@@ -914,15 +924,37 @@ pte_t GetPageNFUA(struct proc* p, pte_t page){
 }
 //    least accessed page + aging
 pte_t GetPageLAPA(struct proc* p, pte_t page){
-  int minCounter = 2147000000;
+  int minOnes = __INT_MAX__;
   pte_t pageToMove = (pte_t)0;
-  for (int i = 0; i < p->userPages.maxSize; i++)
-    if (p->userPages.pagesCounters[i] < minCounter){
-      pageToMove = p->userPages.pages[i];
-      minCounter = p->userPages.pagesCounters[i];
+  int minCounter = __INT_MAX__;  
+  for (int i = 0; i < p->userPages.maxSize; i++) {
+    int counter = p->userPages.pagesCounters[i];
+    int ones = 0;
+    
+    // Count the number of ones in the counter using a bit manipulation approach
+    while (counter != 0) {
+      ones += counter & 1;
+      counter >>= 1;
     }
+    
+    if (ones < minOnes) {
+      pageToMove = p->userPages.pages[i];
+      minOnes = ones;
+      minCounter = counter;
+    }
+    
+    if(ones == minOnes){
+      if(counter < minCounter){
+        pageToMove = p->userPages.pages[i];
+        minOnes = ones;
+        minCounter = counter;
+      }
+    }
+  }
+  
   return pageToMove;
 }
+
 //  second chance FIFO
 pte_t GetPageSCFIFO(struct proc* p, pte_t page){
   int minCounter = 2147000000;
@@ -930,7 +962,7 @@ pte_t GetPageSCFIFO(struct proc* p, pte_t page){
   for (int i = 0; i < p->userPages.maxSize; i++)
     if (p->userPages.pagesCounters[i] < minCounter){
       // second chance
-      if (p->userPages.pagesTriesCounters[i] == 0 && p->userPages.pagesCounters[i] & PTE_U){
+      if (p->userPages.pagesTriesCounters[i] == 0 && p->userPages.pagesCounters[i] & PTE_A){
         p->userPages.pagesCounters[i] = p->userPages.pagesCounters[i] - PTE_A;
         p->userPages.pagesTriesCounters[i]++;
         continue;
@@ -959,7 +991,7 @@ void ReplacePage(struct proc* p, pte_t page){
   else if (SwapAlgoIs("SCFIFO")) pageToMove = GetPageSCFIFO(p, page);
   else if (SwapAlgoIs("NONE")) return;
   
-
+  
   RemoveFromPageData(&p->swappedPages, page);
   RemoveFromPageData(&p->userPages, pageToMove);
   AddToPageData(&p->userPages, page);
