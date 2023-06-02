@@ -379,6 +379,21 @@ fork(void)
   pid = np->pid;
 
   release(&np->lock);
+  
+  if(p->pid > 1){
+    if(p->userPages.size != 0){
+      for(int i=0 ; i < p->userPages.size ; i++){
+        AddPage(np, p->userPages.pages[i]);
+      }
+    }
+
+    if(p->swappedPages.size != 0){
+      for(int i=0 ; i < p->swappedPages.size ; i++){
+        AddPage(np, p->swappedPages.pages[i]);
+      }
+    }
+      
+  }
 
   acquire(&wait_lock);
   np->parent = p;

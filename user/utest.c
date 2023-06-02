@@ -162,3 +162,43 @@ main(int argc, char *argv[])
 
   exit(0);
 }
+
+
+int
+main2(int argc, char *argv[])
+{
+    printf("helloworld\n");
+
+    //fork test
+    int pid = fork();
+    if(pid == 0){
+        printf("child\n");
+ 
+        int mallo = 20;
+        char *arr[mallo];
+        for(int i = 0; i < mallo; i++){
+            char *a = malloc(4096);
+            //fill in the memory with some data
+            //keep a in an array
+            arr[i] = a;
+
+            for(int j = 0; j < 4096; j++){
+                a[j] = 'a';
+            }
+            printf("malloc 4096, i: %d\n", i);
+        }
+
+        //free the memory
+        for(int i = 0; i < mallo; i++){
+            free(arr[i]);
+        } 
+        printf("free 4096\n");
+
+    }
+    else{
+        printf("parent\n");
+        wait(0);
+    }
+    
+exit(0);
+}
