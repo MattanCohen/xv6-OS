@@ -180,3 +180,7 @@ filewrite(struct file *f, uint64 addr, int n)
   return ret;
 }
 
+int 
+fileseek( struct file * f , int offset , int whence ){
+  return 0;
+} 
