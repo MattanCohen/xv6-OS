@@ -85,6 +85,8 @@ extern uint64 sys_exit(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_pipe(void);
 extern uint64 sys_read(void);
+// task 1 
+extern uint64 sys_seek(void);
 extern uint64 sys_kill(void);
 extern uint64 sys_exec(void);
 extern uint64 sys_fstat(void);
@@ -110,6 +112,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_wait]    sys_wait,
 [SYS_pipe]    sys_pipe,
 [SYS_read]    sys_read,
+// task 1 
+[SYS_seek]    sys_seek,
 [SYS_kill]    sys_kill,
 [SYS_exec]    sys_exec,
 [SYS_fstat]   sys_fstat,

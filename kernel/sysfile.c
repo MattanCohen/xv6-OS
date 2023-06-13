@@ -94,6 +94,27 @@ sys_write(void)
   return filewrite(f, p, n);
 }
 
+uint64 
+sys_seek(void){
+
+  int fd, offset, whence;
+  argint(0, &fd);
+  argint(1, &offset);
+  argint(2, &whence);
+
+  struct proc* p = myproc();
+  
+  if( fd < 0 || fd >= NOFILE) 
+    return -1;
+  struct file* file = p->ofile[fd];
+  if( file == 0 || file->type != FD_INODE) 
+    return -1;
+
+  return (uint64)fileseek(file, offset, whence);
+} 
+
+
+
 uint64
 sys_close(void)
 {
