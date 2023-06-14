@@ -17,6 +17,7 @@
         "new": "c",
         "*.tcc": "c",
         "cstdint": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "fcntl.h": "c"
     },
 }

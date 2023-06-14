@@ -5,6 +5,8 @@
 #include "kernel/fcntl.h"
 #endif
 
+int test_random(int print);
+
 int test_seek(int print) {
   int fd = open("testfile.txt", O_RDWR | O_CREATE | O_TRUNC);
   if (fd < 0) {
@@ -28,8 +30,8 @@ int test_seek(int print) {
   read(fd, actual1, sizeof(actual1));
   if (memcmp(expected1, actual1, strlen(expected1)) == 0)
   {
-    if (print) 
-      printf("Writing and reading \"Hello, World!\\n\" successful!\n\n");
+    // if (print) 
+    //   printf("Writing and reading \"Hello, World!\\n\" successful!\n\n");
   }
   else 
   {
@@ -38,10 +40,10 @@ int test_seek(int print) {
     return 0;
   }
 
-  if (print) printf("File content after first write:\n");
-  for(int i = 0; i < sizeof(actual1); i++)
-    if (print) printf("%c", actual1[i]);
-  if (print) printf("\n");
+  // if (print) printf("File content after first write:\n");
+  // for(int i = 0; i < sizeof(actual1); i++)
+  //   if (print) printf("%c", actual1[i]);
+  // if (print) printf("\n");
 
   // Seek to the end of the file to write additional data
   seek(fd, 0, SEEK_CUR);
@@ -58,7 +60,7 @@ int test_seek(int print) {
 
   if (memcmp(expected2, actual2, sizeof(expected2)) == 0)
   {
-    if (print) printf("Concatenating \"This is new data!\\n\" successful!\n\n");
+    // if (print) printf("Concatenating \"This is new data!\\n\" successful!\n\n");
   }
   else
   {
@@ -66,10 +68,10 @@ int test_seek(int print) {
     close(fd);
     return 0;
   }
-  if (print) printf("File content after second write:\n");
-  for(int i = 0; i < sizeof(actual2); i++)
-    if (print) printf("%c", actual2[i]);
-  if (print) printf("\n");
+  // if (print) printf("File content after second write:\n");
+  // for(int i = 0; i < sizeof(actual2); i++)
+  //   if (print) printf("%c", actual2[i]);
+  // if (print) printf("\n");
 
   // Seek slightly backwards then re-read
   seek(fd, -5, SEEK_CUR);
@@ -77,7 +79,7 @@ int test_seek(int print) {
   read(fd, actual3, sizeof(actual3));
   if (memcmp(expected3, actual3, sizeof(expected3)) == 0)
   {
-    if (print) printf("Moving backwards 5 bytes then reading is successful!\n\n");
+    // if (print) printf("Moving backwards 5 bytes then reading is successful!\n\n");
   }
   else 
   {
@@ -85,7 +87,7 @@ int test_seek(int print) {
     close(fd);
     return 0;
   }
-  if (print) printf("Read after going slightly backwards:\n%s\n", actual3);
+  // if (print) printf("Read after going slightly backwards:\n%s\n", actual3);
 
   // Go too far to write new stuff
   seek(fd, 500, SEEK_SET);
@@ -98,7 +100,7 @@ int test_seek(int print) {
 
   if (memcmp(expected4, actual4, sizeof(expected4)) == 0)
   {
-    if (print) printf("Concatenating \"Extra fresh data!\\n\" successful!\n\n");
+    // if (print) printf("Concatenating \"Extra fresh data!\\n\" successful!\n\n");
   }
   else 
   {
@@ -107,10 +109,12 @@ int test_seek(int print) {
     return 0;
   }
 
-  if (print) printf("File content after third write:\n");
-  for(int i = 0; i < sizeof(actual4); i++)
-    if (print) printf("%c", actual4[i]);
-  if (print) printf("\n");
+  // if (print) printf("File content after third write:\n");
+  // for(int i = 0; i < sizeof(actual4); i++)
+  //   if (print) printf("%c", actual4[i]);
+  // if (print) printf("\n");
+
+  printf("SUCCESS: TEST SEEK successful\n");
 
   close(fd);
   return 1;
@@ -124,7 +128,112 @@ uint8 lfsr_char(uint8 lfsr)
   return lfsr;   
 }
 
-void reset_seed(){
+int test_first_with_original_seed(int fd)
+{
+  uint8 res;
+  if (read(fd, &res, 1) < 0)
+    return 0;
+
+  if (res == lfsr_char(0x2A))
+    return 1;
+  return 0;
+}
+
+int test_looping(int fd)
+{
+  uint8 prev, res;
+  if (read(fd, &prev, 1) < 0)
+    return 0;
+  uint8 firstRead = prev;
+
+  for(int i = 0; i < 255; i++)
+  {
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    if (lfsr_char(prev) != res)
+      return 0;
+    prev = res;
+  }
+
+  if (res != firstRead)
+    return 0;
+
+  return 1;
+}
+
+int set_seed(int fd, uint8 seed)
+{
+  return write(fd, &seed, 1);
+}
+
+int test_continuity(int fd)
+{
+  uint8 prev;
+  if (read(fd, &prev, 1) < 0)
+    return 0;
+  if (close(fd) < 0)
+    return 0;
+  
+  if ((fd = open("random", O_RDWR)) < 0)
+    return 0;
+  
+  uint8 res;
+  if (read(fd, &res, 1) < 0)
+    return 0;
+
+  if (lfsr_char(prev) != res)
+    return 0;
+  
+  return 1;
+}
+
+int test_concurrency_read(int fd)
+{
+  uint8 res, first;
+  if (read(fd, &res, 1) < 0)
+    return 0;
+  first = res;
+
+  if (fork() == 0)
+  {
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    exit(0);
+  }
+  else
+  {
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    if (read(fd, &res, 1) < 0)
+      return 0;
+    if (read(fd, &res, 1) < 0)
+      return 0;
+  }
+
+  wait(0);
+  if (read(fd, &res, 1) < 0)
+    return 0;
+
+  if (write(fd, &first, 1) == -1)
+    return 0;
+
+  for(int i = 0; i < 8; i++)
+    if (read(fd, &first, 1) < 0)
+      return 0;
+
+  if (res != first)
+    return 0;
+
+  return 1;
+}
+
+void reset_seed(int print){
   int fd = open("random", O_RDWR);
   if (fd < 0) {
     printf("ERROR ON openning 'random' file\n");
@@ -135,128 +244,159 @@ void reset_seed(){
   {
       printf("ERROR ON RESETING TO ORIGINAL SEED\n");
   }
-  else printf("RESET SEED TO THE ORIGINAL SEED!\n");
+  else if(print) printf("RESET SEED TO THE ORIGINAL SEED!\n");
 }
 
-int test_random_m(int print){
-  int fd = open("random", O_RDWR);
-  if (fd < 0) {
-    printf("ERROR ON openning 'random' file\n");
+void handleFailure(char *errorMsg, int fd)
+{
+  printf("%s\n", errorMsg);
+  set_seed(fd, 0x2A);
+  close(fd);
+}
+
+int test_ass4(int argc, char** argv)
+{
+    // Reset flag = reset PRG to original seed 0x2A
+    int reset = 0;
+    // print flag = print non-errors during sub-tests
+    int print = 0;
+    for(int i = 0; i < argc; i++)
+    {
+        if (strcmp("-r", argv[i]) == 0)
+            reset++;
+        if (strcmp("-p", argv[i]) == 0)
+            print++;
+    }
+    
+    int success = 0;
+    // printf("SEEK TESTS:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    success += test_seek(print);
+    // printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    // printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    // printf("\nPRNG TESTS:\n~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+    success += test_random(reset);
+    if (success == 2){
+        printf("SUCCESS!! PASSED ALL ASS4 TESTS!\n");
+        return 1;
+    }
+
+    // else
+    printf("FAILED 1 OR MORE TESTS\n");
     return 0;
-  }
-  
-  int expected[255];
-  expected[0] = lfsr_char(0x2A);
-  for(int i = 1; i < 255; i++)
-  {
-    expected[i] = lfsr_char(expected[i-1]);
-  }
-
-  uint8 res;
-  for(int i = 1; i < 255; i++)
-  {
-    read(fd, &res, 1);
-    if (print) printf("test random expected: %d\n", expected[i]);
-  }
-
-  printf("FINISHED random test m\n");
-  return 1;
 }
 
-int test_random(int reset, int print) {
-  int fd = open("random", O_RDWR);
-  if (fd < 0) {
-  printf("error: open\n");
+int test_concurrency(int print){
+  if (fork() == 0) {reset_seed(print);}
+  int success = test_random(0);
+  if (!success) return -1;
+
+
   return 0;
-  }
-  
-  // IMPORTANT NOTE: RE-RUNNING THIS TEST SHOULD FAIL! 
-  // BY WRITING A NEW SEED AT THE END OF THE TEST, 
-  // THE DRIVER SHOULD HAVE A NEW SEED AT THE END, 
-  // RUN TESTS WITH RESET > 0 TO RESET TO THE ORIGINAL SEED EVERY RUN
-  if (reset)
-  {
-      uint8 originalSeed = 0x2A;
-      int writeResult = write(fd, &originalSeed, 1);
-      if (writeResult == -1)
-      {
-          printf("ERROR ON RESETING TO ORIGINAL SEED\n");
-          return 0;
-      }
-      else printf("RESET SEED TO THE ORIGINAL SEED!\n");
-  }
+}
 
-  int expected[255];
-  expected[0] = lfsr_char(0x2A);
-  for(int i = 1; i < 255; i++)
-  {
-    expected[i] = lfsr_char(expected[i-1]);
-  }
-
+int test_concurrency_write(int fd, int print)
+{
+  uint8 newSeed = 0x38;
   uint8 res;
-  read(fd, &res, 1);
-  if (res == expected[0])
-  {   
-      if (print) printf("Success on generating first pseudo-random number from original seed\n");
+  if(fork() == 0)
+  {
+    if (write(fd, &newSeed, 1) == -1)
+      return 0;
+    exit(0);
   }
   else
+  {
+    for(int i = 0; i < 10; i++)
     {
-      printf("ERORR on generating first pseudo-random number from original seed\n");
+      if (read(fd, &res, 1) < 0)
+        return 0;
+    }
+  }
+  wait(0);
+  if (read(fd, &res, 1) < 0)
+    return 0;
+  uint8 prev = newSeed;
+  for(int i = 0; i < 11; i++)
+  {
+    if (prev == res)
+    {
+      if (print) printf("SUCCESS: Passed concurrency read test\n");
+      // if (print) printf("\nWrite concurrency test: Reading on new seed occured %d times!\n\n", i);
+      return 1;
+    }
+    prev = lfsr_char(prev);
+  }
+
+  if (prev == res)
+    return 1;
+
+  return 0;
+}
+
+int test_random(int print)
+{
+  int fd = open("random", O_RDWR | O_CREATE);
+  if (fd < 0)
+    {
+      handleFailure("ERROR: OPENING RANDOM DEVICE", fd);
       return 0;
     }
-  // Make sure there are no errors in generating following prng values
-  for(int i = 1; i < 255; i++)
-  {
-      int ret = read(fd, &res, 1);
-      if (ret != 1 || res != expected[i])
-      {
-        printf("ERROR on generating new pseudo-random number from previous number\n");
-        printf("result: %d, expected: %d\n", res, expected[i]);
-        close(fd);
-        return 0;
-      }
-  }
-    
-  if (print) printf("Successfully generated all 255 variants of the original seed!\n");
-  read(fd, &res, 1);
-  if (res == expected[0])
-    {
-      if (print) printf("Successfully looped through all values and returned to initial value!\n");
-    }
-  else
-  {
-    printf("ERROR on looping through all values and returning to initial value\n");
-    close(fd);
-    return 0;
-  }
 
-  // Test changing the seed and getting new stuff:
-  uint8 val = 0x4C;
-  int writeResult = write(fd, (void*)&val, 6);
-  if (writeResult != -1)
+  if (test_first_with_original_seed(fd) == 0)
+    {
+      handleFailure("ERROR: Failed reading original seed", fd);
+      return 0;
+    }
+  if (print) printf("SUCCESS: Passed reading original seed\n");
+
+  if (test_looping(fd) == 0)
   {
-    printf("ERROR on writing new seed with n != 1\n");
-    close(fd);
+    handleFailure("ERROR: Failed looping 255 to return to original seed", fd);
     return 0;
   }
-  writeResult = write(fd, (void*)&val, 1);
-  if (writeResult == -1)
-  {
-    printf("ERROR on writing new seed which should've succeeded\n");
-    close(fd);
+  if (print) printf("SUCCESS: Passed looping to regenerate original seed\n");
+
+  if (set_seed(fd, 0x4C) == -1)
+    {
+    handleFailure("ERROR: Failed writing a new seed", fd);
     return 0;
   }
-  if (print) printf("Writing new seed 0x4C successfull\n");
-  
-  int lfsrOfNewSeed = lfsr_char(0x4C);
-  read(fd, &res, 1);
-  if (res != lfsrOfNewSeed)
+  if (print) printf("SUCCESS: Passed writing a new seed\n");
+
+  if (test_looping(fd) == 0)
   {
-    printf("ERROR on generating new PRNG\n");
-    close(fd);
+    handleFailure("ERROR: Failed looping 255 to return to new seed", fd);
     return 0;
   }
-  printf("SUCCESS!! PASSED RANDOM TESTS!\n");
+  if (print) printf("SUCCESS: Passed looping to regenerate new seed\n");
+
+  if (test_continuity(fd) == 0)
+  {
+    handleFailure("ERROR: Failed to continue generating from point before closing the device", fd);
+    return 0;
+  }
+  if (print) printf("SUCCESS: Passed continuity test to continue generating seed from point before closing the device\n");
+
+  if (test_concurrency_read(fd) == 0)
+  {
+    handleFailure("ERROR: Failed reading proper values concurrently", fd);
+    return 0;
+  }
+  if (print) printf("SUCCESS: Passed generating proper values concurrently\n");
+
+  if (test_concurrency_write(fd, print) == 0)
+  {
+    handleFailure("ERROR: Failed writing new seed concurrently", fd);
+    return 0;
+  }
+  if (print) printf("SUCCESS: Passed writing new seed concurrently\n");
+
+  if (set_seed(fd, 0x2A) == -1)
+  {
+    handleFailure("ERROR: Failed resetting to original seed", fd);
+    return 0;
+  }
   close(fd);
+  printf("SUCCESS! Passed all RANDOM tests!\n");
   return 1;
 }

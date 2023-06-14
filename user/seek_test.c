@@ -1,21 +1,18 @@
 #include "user/seek_test_data.c"
 
-#define run_test1(f, p) printf("function %s: %s\n", #f, (f)((int)(p)) ? "SUCCEED" : "FAILED")
-#define run_test2(f, r, p) printf("function %s: %s\n", #f, (f)((int)(r), (int)(p)) ? "SUCCEED" : "FAILED")
+#define run_test1(f, p) printf("~~~~~~~~~~~ TEST FUNCTION %s: %s ! ~~~~~~~~~~~\n\n", #f, (f)((int)(p)) ? "SUCCEED" : "FAILED")
+#define run_test3(f, r, p) printf("~~~~~~~~~~~ TEST FUNCTION %s: %s ! ~~~~~~~~~~~\n\n", #f, (f)((int)(r), (char**)(p)) ? "SUCCEED" : "FAILED")
 
 int
 main(int argc, char *argv[])
 {
-  int print = 1;
-  // int print = argc > 1 && !(strcmp(argv[1], "r") == 0 || strcmp(argv[1], "reset") == 0) ;
-  
-  // int reset = argc > 1 && (strcmp(argv[1], "r") == 0 || strcmp(argv[1], "reset") == 0) ;
+  int debug = 1;
+ 
+  int run_test_random             = 1;
+  int run_test_ass4               = 1;
 
-
-  // run_test1(test_seek, print);
-  run_test1(test_random_m,print);
-
-  // run_test2(test_random, reset, print);
+  if(run_test_ass4) run_test3(test_ass4, argc, argv);
+  if(run_test_random) run_test1(test_random, debug);
 
   return 0;
 }
